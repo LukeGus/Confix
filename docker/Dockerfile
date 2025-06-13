@@ -65,8 +65,6 @@ COPY package*.json ./
 
 # Copy production dependencies and native modules
 COPY --from=production-deps /app/node_modules /app/node_modules
-COPY --from=native-builder /app/node_modules/bcrypt /app/node_modules/bcrypt
-COPY --from=native-builder /app/node_modules/better-sqlite3 /app/node_modules/better-sqlite3
 
 # Copy backend source
 COPY src/backend/ ./src/backend/
