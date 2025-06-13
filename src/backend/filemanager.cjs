@@ -9,6 +9,21 @@ const PORT = 8082;
 app.use(cors());
 app.use(express.json());
 
+const getReadableTimestamp = () => {
+    return new Intl.DateTimeFormat('en-US', {
+        dateStyle: 'medium',
+        timeStyle: 'medium',
+        timeZone: 'UTC',
+    }).format(new Date());
+};
+
+const logger = {
+    info: (...args) => console.log(`📁 |  🔧 [${getReadableTimestamp()}] INFO:`, ...args),
+    error: (...args) => console.error(`📁 | ❌ [${getReadableTimestamp()}] ERROR:`, ...args),
+    warn: (...args) => console.warn(`📁 | ⚠️ [${getReadableTimestamp()}] WARN:`, ...args),
+    debug: (...args) => console.debug(`📁 | 🔍 [${getReadableTimestamp()}] DEBUG:`, ...args)
+};
+
 function normalizeFilePath(inputPath) {
     if (!inputPath || typeof inputPath !== 'string') {
         throw new Error('Invalid path');
@@ -85,5 +100,5 @@ app.post('/file', (req, res) => {
 });
 
 app.listen(PORT, () => {
-    console.log(`File manager API listening at http://localhost:${PORT}`);
+    logger.info(`File manager API listening at http://localhost:${PORT}`);
 });

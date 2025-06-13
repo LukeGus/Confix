@@ -10,10 +10,10 @@ const getReadableTimestamp = () => {
 };
 
 const logger = {
-    info: (...args) => console.log(`🚀 |  🔧 [${getReadableTimestamp}] INFO:`, ...args),
-    error: (...args) => console.error(`🚀 | ❌ [${getReadableTimestamp}] ERROR:`, ...args),
-    warn: (...args) => console.warn(`⚠️ [${getReadableTimestamp}] WARN:`, ...args),
-    debug: (...args) => console.debug(`🚀 | 🔍 [${getReadableTimestamp}] DEBUG:`, ...args)
+    info: (...args) => console.log(`🚀 |  🔧 [${getReadableTimestamp()}] INFO:`, ...args),
+    error: (...args) => console.error(`🚀 | ❌ [${getReadableTimestamp()}] ERROR:`, ...args),
+    warn: (...args) => console.warn(`🚀 | ⚠️ [${getReadableTimestamp()}] WARN:`, ...args),
+    debug: (...args) => console.debug(`🚀 | 🔍 [${getReadableTimestamp()}] DEBUG:`, ...args)
 };
 
 (async () => {
@@ -31,3 +31,5 @@ const logger = {
         process.exit(1);
     }
 })();
+
+setInterval(() => {}, 1000);
