@@ -27,7 +27,7 @@ export function FileViewer({onFileSelect, onFileContent}) {
                 setFolder(parts.join('/'));
             } else {
                 // For Unix paths or non-drive Windows paths
-                setFolder(parts.length > 0 ? '/' + parts.join('/') : '');
+                setFolder(parts.length > 0 ? '/' + parts.join('/') : '/');
             }
         }
     };
@@ -87,14 +87,21 @@ export function FileViewer({onFileSelect, onFileContent}) {
         if (!selectedFile || !folder) return;
         
         fetch(`${API_BASE}/file?folder=${encodeURIComponent(folder)}&name=${encodeURIComponent(selectedFile)}`)
-            .then(res => res.json())
-            .then(data => {
-                if (data.error) {
-                    setMessage(data.error);
+            .then(async res => {
+                const contentType = res.headers.get('content-type');
+                if (contentType && contentType.includes('application/json')) {
+                    const data = await res.json();
+                    if (data.error) {
+                        throw new Error(data.error);
+                    }
+                    return data;
                 } else {
-                    onFileContent(data);
-                    setMessage('');
+                    return res.text();
                 }
+            })
+            .then(data => {
+                onFileContent(data);
+                setMessage('');
             })
             .catch(e => {
                 // Only show error if we're actually trying to read a file

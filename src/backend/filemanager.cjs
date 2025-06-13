@@ -94,8 +94,12 @@ app.get('/file', (req, res) => {
         const filePath = path.join(folderPath, fileName);
 
         // Check if the file exists and is not a directory
-        if (!fs.existsSync(filePath) || isDirectory(filePath)) {
+        if (!fs.existsSync(filePath)) {
             return res.status(404).json({ error: 'File not found' });
+        }
+
+        if (isDirectory(filePath)) {
+            return res.status(400).json({ error: 'Path is a directory' });
         }
 
         fs.readFile(filePath, 'utf8', (err, data) => {
@@ -103,6 +107,8 @@ app.get('/file', (req, res) => {
                 logger.error('Error reading file:', err);
                 return res.status(500).json({ error: err.message });
             }
+            // Send the file content as plain text
+            res.setHeader('Content-Type', 'text/plain');
             res.send(data);
         });
     } catch (err) {
