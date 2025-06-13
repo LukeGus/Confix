@@ -1,5 +1,6 @@
 import React, {useState, useEffect} from 'react';
 import {Button, Divider, Text, TextInput, Group} from "@mantine/core";
+import path from 'path-browserify';
 
 const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 const API_BASE = isLocalhost 
@@ -15,29 +16,41 @@ export function FileViewer({onFileSelect, onFileContent}) {
     const handleBack = () => {
         if (!folder) return;
         
-        const separator = pathSeparator();
-        const parts = folder.split(separator).filter(Boolean);
+        // Normalize the path first
+        const normalizedPath = folder.replace(/\\/g, '/');
+        const parts = normalizedPath.split('/').filter(Boolean);
+        
         if (parts.length > 0) {
             parts.pop(); // Remove last directory
-            // If we're on Windows and the path starts with a drive letter (e.g. C:)
+            // Handle Windows drive letter case
             if (navigator.appVersion.indexOf('Win') !== -1 && parts[0]?.endsWith(':')) {
-                setFolder(parts.join(separator));
+                setFolder(parts.join('/'));
             } else {
                 // For Unix paths or non-drive Windows paths
-                setFolder(parts.length > 0 ? separator + parts.join(separator) : '');
+                setFolder(parts.length > 0 ? '/' + parts.join('/') : '');
             }
         }
     };
 
     // Load file list whenever folder changes
     useEffect(() => {
-        if (!folder) return setFiles([]);
+        if (!folder) {
+            setFiles([]);
+            return;
+        }
+
         console.log('Loading folder:', folder);
         fetch(`${API_BASE}/files?folder=${encodeURIComponent(folder)}`)
             .then(res => res.json())
             .then(data => {
                 console.log('Files returned:', data);
-                setFiles(data);
+                if (data.error) {
+                    setMessage(data.error);
+                    setFiles([]);
+                } else {
+                    setFiles(data);
+                    setMessage('');
+                }
             })
             .catch(e => {
                 setMessage('Error loading folder: ' + e.message);
@@ -54,11 +67,14 @@ export function FileViewer({onFileSelect, onFileContent}) {
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({content}),
             })
-                .then(res => {
-                    if (!res.ok) throw new Error(res.statusText);
-                    return res.text();
+                .then(res => res.json())
+                .then(data => {
+                    if (data.error) {
+                        setMessage(data.error);
+                    } else {
+                        setMessage(data.message || 'File saved successfully');
+                    }
                 })
-                .then(msg => setMessage(msg))
                 .catch(e => setMessage('Error writing file: ' + e.message));
         };
 
@@ -66,20 +82,40 @@ export function FileViewer({onFileSelect, onFileContent}) {
         return () => window.removeEventListener('saveFile', handleSaveFile);
     }, []);
 
-    // Load selected file content
+    // Load selected file content only when a file is actually selected
     useEffect(() => {
-        if (!selectedFile) return;
+        if (!selectedFile || !folder) return;
+        
         fetch(`${API_BASE}/file?folder=${encodeURIComponent(folder)}&name=${encodeURIComponent(selectedFile)}`)
-            .then(res => {
-                if (!res.ok) throw new Error(res.statusText);
-                return res.text();
-            })
+            .then(res => res.json())
             .then(data => {
-                onFileContent(data);
-                setMessage('');
+                if (data.error) {
+                    setMessage(data.error);
+                } else {
+                    onFileContent(data);
+                    setMessage('');
+                }
             })
-            .catch(e => setMessage('Error loading file: ' + e.message));
+            .catch(e => {
+                // Only show error if we're actually trying to read a file
+                if (selectedFile) {
+                    setMessage('Error loading file: ' + e.message);
+                }
+            });
     }, [selectedFile, folder, onFileContent]);
+
+    const handleFileClick = (name, type) => {
+        if (type === 'file') {
+            setSelectedFile(name);
+            onFileSelect(name, folder);
+        } else {
+            // Normalize the path by using forward slashes
+            const newPath = folder.endsWith('/') ? folder + name : folder + '/' + name;
+            setFolder(newPath);
+            setSelectedFile(null); // Clear selected file when changing directories
+        }
+        setMessage('');
+    };
 
     return (
         <div>
@@ -109,27 +145,14 @@ export function FileViewer({onFileSelect, onFileContent}) {
                     <li
                         key={name}
                         style={{cursor: 'pointer', color: type === 'directory' ? 'lightblue' : 'white'}}
-                        onClick={() => {
-                            if (type === 'file') {
-                                setSelectedFile(name);
-                                onFileSelect(name, folder);
-                            } else {
-                                setFolder(folder.endsWith('/') || folder.endsWith('\\') ? folder + name : folder + pathSeparator() + name);
-                            }
-                            setMessage('');
-                        }}
+                        onClick={() => handleFileClick(name, type)}
                     >
                         {name} {type === 'directory' ? '(dir)' : ''}
                     </li>
                 ))}
             </ul>
 
-            {message && <p>{message}</p>}
+            {message && <p style={{color: 'red'}}>{message}</p>}
         </div>
     );
-}
-
-function pathSeparator() {
-    if (navigator.appVersion.indexOf('Win') !== -1) return '\\';
-    return '/';
 }

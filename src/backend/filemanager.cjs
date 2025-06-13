@@ -29,14 +29,29 @@ function normalizeFilePath(inputPath) {
         throw new Error('Invalid path');
     }
 
-    const windowsAbsPath = /^[a-zA-Z]:[\\/]/;
+    // Normalize slashes to forward slashes
+    let normalizedPath = inputPath.replace(/\\/g, '/');
+    
+    // Handle Windows absolute paths (e.g., C:/Users/...)
+    const windowsAbsPath = /^[a-zA-Z]:\//;
+    if (windowsAbsPath.test(normalizedPath)) {
+        return path.resolve(normalizedPath);
+    }
+    
+    // Handle Unix absolute paths
+    if (normalizedPath.startsWith('/')) {
+        return path.resolve(normalizedPath);
+    }
+    
+    // Handle relative paths
+    return path.resolve(process.cwd(), normalizedPath);
+}
 
-    if (windowsAbsPath.test(inputPath)) {
-        return path.resolve(inputPath);
-    } else if (inputPath.startsWith('/')) {
-        return path.resolve(inputPath);
-    } else {
-        return path.resolve(process.cwd(), inputPath);
+function isDirectory(path) {
+    try {
+        return fs.statSync(path).isDirectory();
+    } catch (e) {
+        return false;
     }
 }
 
@@ -45,8 +60,16 @@ app.get('/files', (req, res) => {
         const folderParam = req.query.folder || '';
         const folderPath = normalizeFilePath(folderParam);
 
+        // Check if the path exists and is a directory
+        if (!fs.existsSync(folderPath) || !isDirectory(folderPath)) {
+            return res.status(404).json({ error: 'Directory not found' });
+        }
+
         fs.readdir(folderPath, { withFileTypes: true }, (err, files) => {
-            if (err) return res.status(500).send(err.message);
+            if (err) {
+                logger.error('Error reading directory:', err);
+                return res.status(500).json({ error: err.message });
+            }
 
             const result = files.map(f => ({
                 name: f.name,
@@ -56,7 +79,8 @@ app.get('/files', (req, res) => {
             res.json(result);
         });
     } catch (err) {
-        res.status(400).send(err.message);
+        logger.error('Error in /files endpoint:', err);
+        res.status(400).json({ error: err.message });
     }
 });
 
@@ -64,17 +88,26 @@ app.get('/file', (req, res) => {
     try {
         const folderParam = req.query.folder || '';
         const fileName = req.query.name;
-        if (!fileName) return res.status(400).send('Missing "name" parameter');
+        if (!fileName) return res.status(400).json({ error: 'Missing "name" parameter' });
 
         const folderPath = normalizeFilePath(folderParam);
         const filePath = path.join(folderPath, fileName);
 
+        // Check if the file exists and is not a directory
+        if (!fs.existsSync(filePath) || isDirectory(filePath)) {
+            return res.status(404).json({ error: 'File not found' });
+        }
+
         fs.readFile(filePath, 'utf8', (err, data) => {
-            if (err) return res.status(500).send(err.message);
+            if (err) {
+                logger.error('Error reading file:', err);
+                return res.status(500).json({ error: err.message });
+            }
             res.send(data);
         });
     } catch (err) {
-        res.status(400).send(err.message);
+        logger.error('Error in /file GET endpoint:', err);
+        res.status(400).json({ error: err.message });
     }
 });
 
@@ -84,18 +117,27 @@ app.post('/file', (req, res) => {
         const fileName = req.query.name;
         const content = req.body.content;
 
-        if (!fileName) return res.status(400).send('Missing "name" parameter');
-        if (content === undefined) return res.status(400).send('Missing "content" in request body');
+        if (!fileName) return res.status(400).json({ error: 'Missing "name" parameter' });
+        if (content === undefined) return res.status(400).json({ error: 'Missing "content" in request body' });
 
         const folderPath = normalizeFilePath(folderParam);
         const filePath = path.join(folderPath, fileName);
 
+        // Ensure the directory exists
+        if (!fs.existsSync(folderPath)) {
+            fs.mkdirSync(folderPath, { recursive: true });
+        }
+
         fs.writeFile(filePath, content, 'utf8', (err) => {
-            if (err) return res.status(500).send(err.message);
-            res.send('File written successfully');
+            if (err) {
+                logger.error('Error writing file:', err);
+                return res.status(500).json({ error: err.message });
+            }
+            res.json({ message: 'File written successfully' });
         });
     } catch (err) {
-        res.status(400).send(err.message);
+        logger.error('Error in /file POST endpoint:', err);
+        res.status(400).json({ error: err.message });
     }
 });
 
