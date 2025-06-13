@@ -1,6 +1,5 @@
 import React, {useState, useEffect} from 'react';
 import {Button, Divider, Text, TextInput, Group} from "@mantine/core";
-import path from 'path-browserify';
 
 const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 const API_BASE = isLocalhost 

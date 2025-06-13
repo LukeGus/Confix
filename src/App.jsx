@@ -7,7 +7,10 @@ import {FileViewer} from "./FileViewer.jsx";
 import {TabList} from "./TabList.jsx";
 import { IconDeviceFloppy } from '@tabler/icons-react';
 
-const API_BASE = 'http://localhost:8082';
+const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+const API_BASE = isLocalhost
+    ? `${window.location.protocol}//${window.location.hostname}:8082`
+    : `${window.location.protocol}//${window.location.hostname}/fileviewer`;
 
 const theme = createTheme({
     colors: {
