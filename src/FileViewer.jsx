@@ -1,7 +1,10 @@
 import React, {useState, useEffect} from 'react';
 import {Button, Divider, Text, TextInput, Group} from "@mantine/core";
 
-const API_BASE = `${window.location.protocol}//${window.location.hostname}:8082`;
+const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+const API_BASE = isLocalhost 
+    ? `${window.location.protocol}//${window.location.hostname}:8082`
+    : `${window.location.protocol}//${window.location.hostname}/fileviewer`;
 
 export function FileViewer({onFileSelect, onFileContent}) {
     const [folder, setFolder] = useState(''); // e.g. 'C:\\Users\\Luke\\Downloads' or '/Users/luke'
