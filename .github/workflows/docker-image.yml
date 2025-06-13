@@ -79,7 +79,7 @@ jobs:
           file: ./docker/Dockerfile
           push: true
           platforms: linux/amd64,linux/arm64
-          tags: ghcr.io/${{ env.REPO_OWNER }}/termix:${{ env.IMAGE_TAG }}
+          tags: ghcr.io/${{ env.REPO_OWNER }}/confix:${{ env.IMAGE_TAG }}
           labels: |
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
             org.opencontainers.image.revision=${{ github.sha }}
@@ -99,7 +99,7 @@ jobs:
         if: success()
         run: |
           curl -d "Docker image build and push completed successfully for tag: ${{ env.IMAGE_TAG }}" \
-          https://ntfy.karmaa.site/termix-build
+          https://ntfy.karmaa.site/confix-build
 
       - name: Delete all untagged image versions
         if: success()
