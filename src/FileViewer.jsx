@@ -88,26 +88,19 @@ export function FileViewer({onFileSelect, onFileContent}) {
         
         fetch(`${API_BASE}/file?folder=${encodeURIComponent(folder)}&name=${encodeURIComponent(selectedFile)}`)
             .then(async res => {
-                const contentType = res.headers.get('content-type');
-                if (contentType && contentType.includes('application/json')) {
-                    const data = await res.json();
-                    if (data.error) {
-                        throw new Error(data.error);
-                    }
-                    return data;
-                } else {
-                    return res.text();
+                if (!res.ok) {
+                    const errorData = await res.json().catch(() => ({ error: res.statusText }));
+                    throw new Error(errorData.error || res.statusText);
                 }
+                return res.text();
             })
-            .then(data => {
-                onFileContent(data);
+            .then(content => {
+                onFileContent(content);
                 setMessage('');
             })
             .catch(e => {
-                // Only show error if we're actually trying to read a file
-                if (selectedFile) {
-                    setMessage('Error loading file: ' + e.message);
-                }
+                console.error('File loading error:', e);
+                setMessage('Error loading file: ' + e.message);
             });
     }, [selectedFile, folder, onFileContent]);
 

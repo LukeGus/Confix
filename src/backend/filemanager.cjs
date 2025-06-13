@@ -95,25 +95,22 @@ app.get('/file', (req, res) => {
 
         // Check if the file exists and is not a directory
         if (!fs.existsSync(filePath)) {
+            logger.error(`File not found: ${filePath}`);
             return res.status(404).json({ error: 'File not found' });
         }
 
         if (isDirectory(filePath)) {
+            logger.error(`Path is a directory: ${filePath}`);
             return res.status(400).json({ error: 'Path is a directory' });
         }
 
-        fs.readFile(filePath, 'utf8', (err, data) => {
-            if (err) {
-                logger.error('Error reading file:', err);
-                return res.status(500).json({ error: err.message });
-            }
-            // Send the file content as plain text
-            res.setHeader('Content-Type', 'text/plain');
-            res.send(data);
-        });
+        // Read file content
+        const content = fs.readFileSync(filePath, 'utf8');
+        res.setHeader('Content-Type', 'text/plain');
+        res.send(content);
     } catch (err) {
         logger.error('Error in /file GET endpoint:', err);
-        res.status(400).json({ error: err.message });
+        res.status(500).json({ error: err.message });
     }
 });
 
@@ -134,16 +131,11 @@ app.post('/file', (req, res) => {
             fs.mkdirSync(folderPath, { recursive: true });
         }
 
-        fs.writeFile(filePath, content, 'utf8', (err) => {
-            if (err) {
-                logger.error('Error writing file:', err);
-                return res.status(500).json({ error: err.message });
-            }
-            res.json({ message: 'File written successfully' });
-        });
+        fs.writeFileSync(filePath, content, 'utf8');
+        res.json({ message: 'File written successfully' });
     } catch (err) {
         logger.error('Error in /file POST endpoint:', err);
-        res.status(400).json({ error: err.message });
+        res.status(500).json({ error: err.message });
     }
 });
 
