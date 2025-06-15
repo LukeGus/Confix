@@ -1,4 +1,4 @@
-//const database = require('./database.cjs');
+const database = require('./database.cjs');
 const filemanager = require('./filemanager.cjs');
 
 const getReadableTimestamp = () => {

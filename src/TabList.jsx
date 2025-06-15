@@ -1,7 +1,8 @@
 import React from 'react';
 import { Button } from '@mantine/core';
+import { IconHome } from '@tabler/icons-react';
 
-export function TabList({ tabs, activeTab, setActiveTab, closeTab }) {
+export function TabList({ tabs, activeTab, setActiveTab, closeTab, onHomeClick }) {
     return (
         <div style={{ 
             height: '40px',
@@ -33,7 +34,41 @@ export function TabList({ tabs, activeTab, setActiveTab, closeTab }) {
                     borderRadius: '3px'
                 }
             }}>
-                {tabs.map((tab) => {
+                <div 
+                    style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        backgroundColor: activeTab === 'home' ? '#36414C' : '#2F3740',
+                        borderRadius: '4px',
+                        height: '32px',
+                        minWidth: '48px',
+                        marginRight: '4px',
+                        border: '1px solid #4A5568',
+                        overflow: 'hidden',
+                        flexShrink: 0
+                    }}
+                >
+                    <Button
+                        onClick={onHomeClick}
+                        variant="subtle"
+                        color="gray"
+                        style={{
+                            height: '100%',
+                            padding: '0 8px',
+                            backgroundColor: 'transparent',
+                            color: 'white',
+                            border: 'none',
+                            minWidth: '48px',
+                            borderRadius: 0,
+                            transition: 'background 0.2s',
+                        }}
+                        onMouseOver={e => e.currentTarget.style.backgroundColor = '#4A5568'}
+                        onMouseOut={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                    >
+                        <IconHome size={16} />
+                    </Button>
+                </div>
+                {tabs.map((tab, i) => {
                     const isActive = tab.id === activeTab;
                     return (
                         <div 
@@ -67,8 +102,11 @@ export function TabList({ tabs, activeTab, setActiveTab, closeTab }) {
                                     overflow: 'hidden',
                                     textOverflow: 'ellipsis',
                                     whiteSpace: 'nowrap',
-                                    borderRadius: 0
+                                    borderRadius: 0,
+                                    transition: 'background 0.2s',
                                 }}
+                                onMouseOver={e => e.currentTarget.style.backgroundColor = '#4A5568'}
+                                onMouseOut={e => e.currentTarget.style.backgroundColor = 'transparent'}
                             >
                                 {tab.name}
                             </Button>
@@ -90,10 +128,10 @@ export function TabList({ tabs, activeTab, setActiveTab, closeTab }) {
                                     border: 'none',
                                     minWidth: '32px',
                                     borderRadius: 0,
-                                    '&:hover': {
-                                        backgroundColor: '#4A5568'
-                                    }
+                                    transition: 'background 0.2s',
                                 }}
+                                onMouseOver={e => e.currentTarget.style.backgroundColor = '#4A5568'}
+                                onMouseOut={e => e.currentTarget.style.backgroundColor = 'transparent'}
                             >
                                 ×
                             </Button>

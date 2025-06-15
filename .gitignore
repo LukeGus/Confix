@@ -22,3 +22,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+/src/backend/users.db
+/src/backend/users.db-shm
+/src/backend/users.db-wal
