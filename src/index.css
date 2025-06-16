@@ -1,9 +1,40 @@
 @import "tailwindcss";
 
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
 html, body, #root {
-  border: none !important;
-  outline: none !important;
-  box-shadow: none !important;
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background-color: #282c34;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+  background-color: #282c34;
+}
+
+#root {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.blurred {
+  filter: blur(2px);
+  pointer-events: none;
+  position: relative;
+  width: 100%;
+  height: 100%;
 }
 
 .blurred *, .blurred *::before, .blurred *::after {
@@ -31,4 +62,11 @@ html, body, #root {
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+.profile-modal-close {
+  transition: background 0.2s;
+}
+.profile-modal-close:hover {
+  background-color: #4A5568 !important;
 }

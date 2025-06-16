@@ -171,125 +171,170 @@ function App() {
     return (
         <MantineProvider theme={theme}>
             <div style={{ position: 'relative', minHeight: '100vh' }}>
-                <div
-                    className={!user || !authReady ? 'blurred' : ''}
-                    style={{
-                        filter: !user || !authReady ? 'blur(2px)' : 'none',
-                        pointerEvents: !user || !authReady ? 'none' : 'auto',
-                        transition: 'filter 0.2s',
-                    }}
-                >
-                    <AppShell
-                        header={{height: 60}}
-                        navbar={{
-                            width: 300,
-                            breakpoint: 'sm',
-                            collapsed: {desktop: !opened},
+            <AppShell
+                header={{height: 60}}
+                navbar={{
+                    width: 300,
+                    breakpoint: 'sm',
+                    collapsed: {desktop: !opened},
+                }}
+                padding={0}
+                color="dark"
+                styles={{
+                    main: {
+                        borderLeft: opened ? '3px solid #2F3740' : 'none',
+                            position: 'relative',
+                            overflow: 'hidden',
+                    },
+                    header: {
+                        borderBottom: '3px solid #2F3740',
+                    },
+                    navbar: {
+                        borderRight: opened ? '3px solid #2F3740' : 'none',
+                    }
+                }}
+            >
+                <AppShell.Header style={{ 
+                    backgroundColor: '#36414C',
+                    display: 'flex',
+                    alignItems: 'center',
+                    padding: '0 8px',
+                    gap: '8px'
+                }}>
+                        <Button
+                            variant="filled"
+                            style={{
+                                backgroundColor: '#2f3740',
+                                border: '1px solid #4A5568',
+                                color: 'white',
+                                borderRadius: 4,
+                                height: 36,
+                                width: 36,
+                                marginLeft: 0,
+                                boxShadow: 'none',
+                                transition: 'background 0.2s',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                minWidth: 0,
+                                padding: 0,
+                            }}
+                            onClick={toggle}
+                            onMouseOver={e => e.currentTarget.style.backgroundColor = '#4A5568'}
+                            onMouseOut={e => e.currentTarget.style.backgroundColor = '#2f3740'}
+                        >
+                    <Burger
+                        opened={opened}
+                        size="sm"
+                        color="white"
+                                lineSize={2}
+                    />
+                        </Button>
+                    <TabList
+                        tabs={tabs}
+                        activeTab={activeTab}
+                        setActiveTab={id => setTabState(prev => ({ ...prev, activeTab: id }))}
+                        closeTab={handleCloseTab}
+                        onHomeClick={handleHomeClick}
+                    />
+                    <Button 
+                        onClick={handleSave}
+                        variant="filled"
+                        color="blue"
+                        disabled={!activeTab || activeTab === 'home' || !hasUnsavedChanges}
+                        leftSection={<IconDeviceFloppy size={16} />}
+                        style={{ 
+                            flexShrink: 0,
+                                backgroundColor: !activeTab || activeTab === 'home' || !hasUnsavedChanges ? '#2f3740' : '#4A5568',
+                            color: 'white',
+                            borderColor: '#4A5568',
+                            transition: 'background 0.2s',
                         }}
-                        padding={0}
-                        color="dark"
-                        styles={{
-                            main: {
-                                borderLeft: opened ? '3px solid #2F3740' : 'none',
-                            },
-                            header: {
-                                borderBottom: '3px solid #2F3740',
-                            },
-                            navbar: {
-                                borderRight: opened ? '3px solid #2F3740' : 'none',
-                            }
+                        onMouseOver={e => {
+                            if (!(!activeTab || activeTab === 'home' || !hasUnsavedChanges)) e.currentTarget.style.backgroundColor = '#36414C';
+                        }}
+                        onMouseOut={e => {
+                                e.currentTarget.style.backgroundColor = !activeTab || activeTab === 'home' || !hasUnsavedChanges ? '#2f3740' : '#4A5568';
                         }}
                     >
-                        <AppShell.Header style={{ 
-                            backgroundColor: '#36414C',
-                            display: 'flex',
-                            alignItems: 'center',
-                            padding: '0 8px',
-                            gap: '8px'
-                        }}>
-                            <Burger
-                                opened={opened}
-                                onClick={toggle}
-                                size="sm"
-                                color="white"
+                        Save
+                    </Button>
+                        <User onAuth={handleAuth} user={user} setUser={setUser} setShowSettings={setShowSettings} />
+                </AppShell.Header>
+                <AppShell.Navbar p="md" style={{ 
+                    backgroundColor: '#36414C',
+                        color: 'white',
+                        position: 'relative',
+                        overflow: 'hidden',
+                    }}>
+                        {(!user || !authReady) && (
+                            <div
+                                style={{
+                                    position: 'absolute',
+                                    inset: 0,
+                                    zIndex: 10,
+                                    background: '#282c34',
+                                    opacity: 1,
+                                    backdropFilter: 'blur(2px)',
+                                    WebkitBackdropFilter: 'blur(2px)',
+                                    pointerEvents: 'none',
+                                }}
                             />
-                            <TabList
-                                tabs={tabs}
-                                activeTab={activeTab}
-                                setActiveTab={id => setTabState(prev => ({ ...prev, activeTab: id }))}
-                                closeTab={handleCloseTab}
-                                onHomeClick={handleHomeClick}
+                        )}
+                    <FileViewer 
+                        onFileSelect={handleFileSelect}
+                        starredFiles={starredFiles}
+                        setStarredFiles={setStarredFiles}
+                        folder={folder}
+                        setFolder={setFolder}
+                        tabs={tabs}
+                    />
+                </AppShell.Navbar>
+                    <AppShell.Main className="h-full w-full" style={{ backgroundColor: '#282c34', position: 'relative', overflow: 'hidden' }}>
+                        {(!user || !authReady) && (
+                            <div
+                                style={{
+                                    position: 'absolute',
+                                    inset: 0,
+                                    zIndex: 10,
+                                    background: '#282c34',
+                                    opacity: 1,
+                                    backdropFilter: 'blur(2px)',
+                                    WebkitBackdropFilter: 'blur(2px)',
+                                    pointerEvents: 'none',
+                                }}
                             />
-                            <Button 
-                                onClick={handleSave}
-                                variant="filled"
-                                color="blue"
-                                disabled={!activeTab || activeTab === 'home' || !hasUnsavedChanges}
-                                leftSection={<IconDeviceFloppy size={16} />}
-                                style={{ 
-                                    flexShrink: 0,
-                                    backgroundColor: !activeTab || activeTab === 'home' || !hasUnsavedChanges ? '#2f3740' : '#4A5568',
-                                    color: 'white',
-                                    borderColor: '#4A5568',
-                                    transition: 'background 0.2s',
-                                }}
-                                onMouseOver={e => {
-                                    if (!(!activeTab || activeTab === 'home' || !hasUnsavedChanges)) e.currentTarget.style.backgroundColor = '#36414C';
-                                }}
-                                onMouseOut={e => {
-                                    e.currentTarget.style.backgroundColor = !activeTab || activeTab === 'home' || !hasUnsavedChanges ? '#2f3740' : '#4A5568';
-                                }}
-                            >
-                                Save
-                            </Button>
-                            {/* User profile/settings/logout menu */}
-                            <User onAuth={handleAuth} user={user} setUser={setUser} setShowSettings={setShowSettings} />
-                        </AppShell.Header>
-                        <AppShell.Navbar p="md" style={{ 
-                            backgroundColor: '#36414C',
+                        )}
+                    {activeTab === 'home' ? (
+                        <HomeView 
+                            onFileSelect={handleFileSelect}
+                            recentFiles={recentFiles}
+                            starredFiles={starredFiles}
+                            setStarredFiles={setStarredFiles}
+                            folderShortcuts={folderShortcuts}
+                            setFolderShortcuts={setFolderShortcuts}
+                            setFolder={setFolder}
+                            setActiveTab={id => setTabState(prev => ({ ...prev, activeTab: id }))}
+                            handleRemoveRecent={handleRemoveRecent}
+                        />
+                    ) : activeTabData ? (
+                        <CodeEditor
+                            isNavbarOpen={opened}
+                            content={activeTabData.content}
+                            onContentChange={handleContentChange}
+                        />
+                    ) : (
+                        <div style={{ 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            justifyContent: 'center', 
+                            height: '100%',
                             color: 'white'
                         }}>
-                            <FileViewer 
-                                onFileSelect={handleFileSelect}
-                                starredFiles={starredFiles}
-                                setStarredFiles={setStarredFiles}
-                                folder={folder}
-                                setFolder={setFolder}
-                                tabs={tabs}
-                            />
-                        </AppShell.Navbar>
-                        <AppShell.Main className="h-full w-full" style={{ backgroundColor: '#282c34' }}>
-                            {activeTab === 'home' ? (
-                                <HomeView 
-                                    onFileSelect={handleFileSelect}
-                                    recentFiles={recentFiles}
-                                    starredFiles={starredFiles}
-                                    setStarredFiles={setStarredFiles}
-                                    folderShortcuts={folderShortcuts}
-                                    setFolderShortcuts={setFolderShortcuts}
-                                    setFolder={setFolder}
-                                    setActiveTab={id => setTabState(prev => ({ ...prev, activeTab: id }))}
-                                    handleRemoveRecent={handleRemoveRecent}
-                                />
-                            ) : activeTabData ? (
-                                <CodeEditor
-                                    isNavbarOpen={opened}
-                                    content={activeTabData.content}
-                                    onContentChange={handleContentChange}
-                                />
-                            ) : (
-                                <div style={{ 
-                                    display: 'flex', 
-                                    alignItems: 'center', 
-                                    justifyContent: 'center', 
-                                    height: '100%',
-                                    color: 'white'
-                                }}>
-                                </div>
-                            )}
-                        </AppShell.Main>
-                    </AppShell>
-                </div>
+                        </div>
+                    )}
+                </AppShell.Main>
+            </AppShell>
                 {/* Login/signup modal overlay, always rendered */}
                 {(!user || !authReady) && (
                     <User onAuth={handleAuth} user={user} setUser={setUser} setShowSettings={setShowSettings} />

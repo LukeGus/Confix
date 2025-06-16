@@ -41,8 +41,20 @@ db.prepare(`CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     username TEXT UNIQUE NOT NULL,
     password TEXT NOT NULL,
-    created_at TEXT NOT NULL
+    created_at TEXT NOT NULL,
+    is_admin BOOLEAN DEFAULT 0
 )`).run();
+
+db.prepare(`CREATE TABLE IF NOT EXISTS settings (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    signup_enabled BOOLEAN DEFAULT 1
+)`).run();
+
+// Initialize settings if not exists
+const settingsCount = db.prepare('SELECT COUNT(*) as count FROM settings').get().count;
+if (settingsCount === 0) {
+    db.prepare('INSERT INTO settings (signup_enabled) VALUES (1)').run();
+}
 
 function getKeyAndIV() {
     // 32 bytes key for aes-256-ctr, 16 bytes IV
@@ -89,14 +101,34 @@ function authMiddleware(req, res, next) {
 app.post('/database/register', async (req, res) => {
     const { username, password } = req.body;
     if (!username || !password) return res.status(400).json({ error: 'Username and password required' });
+
+    // Check if signups are enabled
+    const settings = db.prepare('SELECT signup_enabled FROM settings WHERE id = 1').get();
+    if (!settings.signup_enabled) {
+        return res.status(403).json({ error: 'Signups are currently disabled' });
+    }
+
     try {
+        // Check if this is the first user
+        const userCount = db.prepare('SELECT COUNT(*) as count FROM users').get().count;
+        const isFirstUser = userCount === 0;
+
         const hash = await bcrypt.hash(password + SALT, 10);
-        const stmt = db.prepare('INSERT INTO users (username, password, created_at) VALUES (?, ?, ?)');
-        stmt.run(username, encrypt(hash), new Date().toISOString());
+        const stmt = db.prepare('INSERT INTO users (username, password, created_at, is_admin) VALUES (?, ?, ?, ?)');
+        stmt.run(username, encrypt(hash), new Date().toISOString(), isFirstUser ? 1 : 0);
+
         // Immediately log in the user after registration
         const user = db.prepare('SELECT * FROM users WHERE username = ?').get(username);
         const token = generateToken(user);
-        return res.json({ token, user: { id: user.id, username: user.username } });
+        return res.json({ 
+            token, 
+            user: { 
+                id: user.id, 
+                username: user.username,
+                isAdmin: user.is_admin === 1
+            },
+            isFirstUser
+        });
     } catch (err) {
         if (err.code === 'SQLITE_CONSTRAINT') {
             return res.status(409).json({ error: 'Username already exists' });
@@ -109,7 +141,7 @@ app.post('/database/register', async (req, res) => {
 // User login
 app.post('/database/login', async (req, res) => {
     const { username, password } = req.body;
-    if (!username || !password) return res.status(400).json({ error: 'Username and password required' });
+    if (!username || !password) return res.status(401).json({ error: 'Username and password required' });
     try {
         const user = db.prepare('SELECT * FROM users WHERE username = ?').get(username);
         if (!user) return res.status(401).json({ error: 'Invalid credentials' });
@@ -117,7 +149,14 @@ app.post('/database/login', async (req, res) => {
         const valid = await bcrypt.compare(password + SALT, hash);
         if (!valid) return res.status(401).json({ error: 'Invalid credentials' });
         const token = generateToken(user);
-        return res.json({ token, user: { id: user.id, username: user.username } });
+        return res.json({ 
+            token, 
+            user: { 
+                id: user.id, 
+                username: user.username,
+                isAdmin: user.is_admin === 1
+            }
+        });
     } catch (err) {
         logger.error('Login error:', err);
         return res.status(500).json({ error: 'Login failed' });
@@ -126,9 +165,45 @@ app.post('/database/login', async (req, res) => {
 
 // Get current user profile
 app.get('/database/profile', authMiddleware, (req, res) => {
-    const user = db.prepare('SELECT id, username, created_at FROM users WHERE id = ?').get(req.user.id);
+    const user = db.prepare('SELECT id, username, created_at, is_admin FROM users WHERE id = ?').get(req.user.id);
     if (!user) return res.status(404).json({ error: 'User not found' });
-    return res.json({ user });
+    return res.json({ 
+        user: {
+            id: user.id,
+            username: user.username,
+            created_at: user.created_at,
+            isAdmin: user.is_admin === 1
+        }
+    });
+});
+
+// Check if this is the first user
+app.get('/database/check-first-user', (req, res) => {
+    const userCount = db.prepare('SELECT COUNT(*) as count FROM users').get().count;
+    return res.json({ isFirstUser: userCount === 0 });
+});
+
+// Get admin settings
+app.get('/database/admin/settings', authMiddleware, (req, res) => {
+    const user = db.prepare('SELECT is_admin FROM users WHERE id = ?').get(req.user.id);
+    if (!user || !user.is_admin) return res.status(403).json({ error: 'Admin access required' });
+
+    const settings = db.prepare('SELECT signup_enabled FROM settings WHERE id = 1').get();
+    return res.json({ settings });
+});
+
+// Update admin settings
+app.post('/database/admin/settings', authMiddleware, (req, res) => {
+    const user = db.prepare('SELECT is_admin FROM users WHERE id = ?').get(req.user.id);
+    if (!user || !user.is_admin) return res.status(403).json({ error: 'Admin access required' });
+
+    const { signup_enabled } = req.body;
+    if (typeof signup_enabled !== 'boolean') {
+        return res.status(400).json({ error: 'Invalid signup_enabled value' });
+    }
+
+    db.prepare('UPDATE settings SET signup_enabled = ? WHERE id = 1').run(signup_enabled ? 1 : 0);
+    return res.json({ message: 'Settings updated successfully' });
 });
 
 // Protect all routes below this

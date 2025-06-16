@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Modal, TextInput, Button, Group, Text, Loader, Paper, Stack, ActionIcon, Divider } from '@mantine/core';
+import { Modal, TextInput, Button, Group, Text, Loader, Paper, Stack, ActionIcon, Divider, Switch } from '@mantine/core';
 import { IconUser, IconLogout, IconSettings } from '@tabler/icons-react';
 
 const API_BASE = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
@@ -14,6 +14,21 @@ export function User({ onAuth, user, setUser, setShowSettings }) {
     const [error, setError] = useState('');
     const [autoLoginTried, setAutoLoginTried] = useState(false);
     const [profileModalOpen, setProfileModalOpen] = useState(false);
+    const [adminModalOpen, setAdminModalOpen] = useState(false);
+    const [signupEnabled, setSignupEnabled] = useState(true);
+    const [isFirstUser, setIsFirstUser] = useState(false);
+
+    // Check if this is the first user
+    useEffect(() => {
+        if (mode === 'signup') {
+            fetch(`${API_BASE}/check-first-user`)
+                .then(res => res.json())
+                .then(data => {
+                    setIsFirstUser(data.isFirstUser);
+                })
+                .catch(console.error);
+        }
+    }, [mode]);
 
     // Auto-login on mount
     useEffect(() => {
@@ -47,6 +62,22 @@ export function User({ onAuth, user, setUser, setShowSettings }) {
         }
     }, [setUser, onAuth, autoLoginTried]);
 
+    // Load admin settings when admin modal opens
+    useEffect(() => {
+        if (adminModalOpen && user?.isAdmin) {
+            fetch(`${API_BASE}/admin/settings`, {
+                headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+            })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.settings) {
+                        setSignupEnabled(data.settings.signup_enabled);
+                    }
+                })
+                .catch(console.error);
+        }
+    }, [adminModalOpen, user]);
+
     const handleAuth = async () => {
         setLoading(true);
         setError('');
@@ -66,8 +97,6 @@ export function User({ onAuth, user, setUser, setShowSettings }) {
                 setPassword('');
                 setError('');
                 setMode('login');
-            } else if (res.status === 409) {
-                setError(data.error || 'Username already exists');
             } else {
                 setError(data.error || 'Authentication failed');
             }
@@ -83,6 +112,24 @@ export function User({ onAuth, user, setUser, setShowSettings }) {
         setUser(null);
         setProfileModalOpen(false);
         if (setShowSettings) setShowSettings(false);
+    };
+
+    const handleSignupToggle = async (checked) => {
+        try {
+            const res = await fetch(`${API_BASE}/admin/settings`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                },
+                body: JSON.stringify({ signup_enabled: checked })
+            });
+            if (res.ok) {
+                setSignupEnabled(checked);
+            }
+        } catch (error) {
+            console.error('Failed to update settings:', error);
+        }
     };
 
     // Show login/signup modal if not authenticated
@@ -106,6 +153,11 @@ export function User({ onAuth, user, setUser, setShowSettings }) {
                         <Text align="center" size="lg" weight={700} color="white">
                             {mode === 'login' ? 'Log In' : 'Sign Up'}
                         </Text>
+                        {mode === 'signup' && isFirstUser && (
+                            <Text align="center" size="sm" color="yellow" weight={500}>
+                                You are the first user! You will be made an administrator.
+                            </Text>
+                        )}
                         <TextInput
                             label="Username"
                             value={username}
@@ -178,76 +230,105 @@ export function User({ onAuth, user, setUser, setShowSettings }) {
                 <Modal
                     opened={profileModalOpen}
                     onClose={() => setProfileModalOpen(false)}
-                    title={<Text color="white" weight={600}>Profile & Settings</Text>}
+                    title={<Text color="white" weight={600} fw={700}>Profile</Text>}
                     centered
                     overlayProps={{ background: 'rgba(40,44,52,0.7)', blur: 2 }}
                     styles={{
-                        content: { background: '#23272f', color: 'white', borderRadius: 8, border: '1.5px solid #4A5568', boxShadow: '0 4px 32px #0008' },
+                        content: { background: '#23272f', color: 'white', borderRadius: 4, border: '1px solid #4A5568', boxShadow: '0 4px 32px #0008' },
                         header: { background: '#23272f', borderBottom: '1px solid #4A5568' },
                         title: { color: 'white' },
-                        close: { color: '#A0AEC0' },
+                        close: {
+                            backgroundColor: '#2f3740',
+                            border: '1px solid #4A5568',
+                            color: 'white',
+                            borderRadius: 4,
+                            boxShadow: 'none',
+                            transition: 'background 0.2s',
+                        },
                     }}
+                    classNames={{ close: 'profile-modal-close' }}
                 >
                     <Stack spacing="md">
-                        <Group position="apart">
-                            <Text size="md" color="white" weight={500}>Username</Text>
-                            <Text size="md" color="white">{user.username}</Text>
-                        </Group>
-                        <Divider color="#4A5568" />
-                        <Button
-                            leftSection={<IconSettings size={16} />}
-                            variant="filled"
-                            color="teal"
-                            style={{ backgroundColor: '#36414C', color: 'white', borderColor: '#4A5568', borderRadius: 4, fontWeight: 500, fontSize: 14 }}
-                            onClick={() => {
-                                setProfileModalOpen(false);
-                                if (setShowSettings) setShowSettings(true);
-                            }}
-                            onMouseOver={e => e.currentTarget.style.backgroundColor = '#2dd4bf'}
-                            onMouseOut={e => e.currentTarget.style.backgroundColor = '#36414C'}
-                        >
-                            Settings
-                        </Button>
+                        <div/>
+                        <Text size="md" color="white" weight={500}>
+                            User: {user.username}
+                        </Text>
+                        {user.isAdmin && (
+                            <Button
+                                leftSection={<IconSettings size={16} />}
+                                variant="filled"
+                                color="blue"
+                                style={{ backgroundColor: '#2f3740', color: 'white', borderColor: '#4A5568', borderRadius: 4, fontWeight: 500, fontSize: 14 }}
+                                onClick={() => {
+                                    setProfileModalOpen(false);
+                                    setAdminModalOpen(true);
+                                }}
+                                onMouseOver={e => e.currentTarget.style.backgroundColor = '#4A5568'}
+                                onMouseOut={e => e.currentTarget.style.backgroundColor = '#2f3740'}
+                            >
+                                Admin Settings
+                            </Button>
+                        )}
                         <Button
                             leftSection={<IconLogout size={16} />}
                             variant="filled"
-                            color="red"
-                            style={{ backgroundColor: '#4A5568', color: 'white', borderColor: '#ff4d4f', borderRadius: 4, fontWeight: 500, fontSize: 14 }}
+                            color="blue"
+                            style={{ backgroundColor: '#2f3740', color: 'white', borderColor: '#ff4d4f', borderRadius: 4, fontWeight: 500, fontSize: 14 }}
                             onClick={handleLogout}
-                            onMouseOver={e => e.currentTarget.style.backgroundColor = '#ff4d4f'}
-                            onMouseOut={e => e.currentTarget.style.backgroundColor = '#4A5568'}
+                            onMouseOver={e => e.currentTarget.style.backgroundColor = '#4A5568'}
+                            onMouseOut={e => e.currentTarget.style.backgroundColor = '#2f3740'}
                         >
                             Log out
                         </Button>
+                    </Stack>
+                </Modal>
+
+                {/* Admin Settings Modal */}
+                <Modal
+                    opened={adminModalOpen}
+                    onClose={() => setAdminModalOpen(false)}
+                    title={<Text color="white" weight={600} fw={700}>Admin Settings</Text>}
+                    centered
+                    overlayProps={{ background: 'rgba(40,44,52,0.7)', blur: 2 }}
+                    styles={{
+                        content: { background: '#23272f', color: 'white', borderRadius: 4, border: '1px solid #4A5568', boxShadow: '0 4px 32px #0008' },
+                        header: { background: '#23272f', borderBottom: '1px solid #4A5568' },
+                        title: { color: 'white' },
+                        close: {
+                            backgroundColor: '#2f3740',
+                            border: '1px solid #4A5568',
+                            color: 'white',
+                            borderRadius: 4,
+                            boxShadow: 'none',
+                            transition: 'background 0.2s',
+                        },
+                    }}
+                    classNames={{ close: 'profile-modal-close' }}
+                >
+                    <Stack spacing="md">
+                        <div/>
+                        <Group position="apart">
+                            <Text size="md" color="white">Allow New Signups</Text>
+                            <Switch
+                                checked={signupEnabled}
+                                onChange={e => handleSignupToggle(e.currentTarget.checked)}
+                                color="blue"
+                                styles={{
+                                    track: {
+                                        backgroundColor: signupEnabled ? '#36414C' : '#2f3740',
+                                        borderColor: '#4A5568',
+                                    },
+                                    thumb: {
+                                        backgroundColor: signupEnabled ? '#4299E1' : '#A0AEC0',
+                                    }
+                                }}
+                            />
+                        </Group>
                     </Stack>
                 </Modal>
             </>
         );
     }
 
-    // Profile/settings/logout menu for top bar
-    return (
-        <Menu shadow="md" width={200} position="bottom-end">
-            <Menu.Target>
-                <ActionIcon size={36} style={{ background: '#303444', color: 'white', border: '1px solid #4A5568', marginLeft: 8 }}>
-                    <Avatar color="blue" radius="xl" size={28} style={{ marginRight: 4 }}>
-                        <IconUser size={18} />
-                    </Avatar>
-                </ActionIcon>
-            </Menu.Target>
-            <Menu.Dropdown style={{ background: '#23272f', color: 'white' }}>
-                <Menu.Label>Signed in as</Menu.Label>
-                <Menu.Item icon={<IconUser size={16} />}>
-                    {user?.username}
-                </Menu.Item>
-                <Menu.Divider />
-                <Menu.Item icon={<IconSettings size={16} />} onClick={() => setShowSettings(true)}>
-                    Settings
-                </Menu.Item>
-                <Menu.Item icon={<IconLogout size={16} />} color="red" onClick={handleLogout}>
-                    Log out
-                </Menu.Item>
-            </Menu.Dropdown>
-        </Menu>
-    );
+    return null;
 } 
