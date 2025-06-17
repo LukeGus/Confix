@@ -139,7 +139,7 @@ function authMiddleware(req, res, next) {
     }
 }
 
-app.post('/database/register', async (req, res) => {
+app.post('/register', async (req, res) => {
     const { username, password } = req.body;
     if (!username || !password) return res.status(400).json({ error: 'Username and password required' });
 
@@ -176,7 +176,7 @@ app.post('/database/register', async (req, res) => {
     }
 });
 
-app.post('/database/login', async (req, res) => {
+app.post('/login', async (req, res) => {
     const { username, password } = req.body;
     if (!username || !password) return res.status(401).json({ error: 'Username and password required' });
     try {
@@ -200,7 +200,7 @@ app.post('/database/login', async (req, res) => {
     }
 });
 
-app.get('/database/profile', authMiddleware, (req, res) => {
+app.get('/profile', authMiddleware, (req, res) => {
     const user = db.prepare('SELECT id, username, created_at, is_admin FROM users WHERE id = ?').get(req.user.id);
     if (!user) return res.status(404).json({ error: 'User not found' });
     return res.json({ 
@@ -213,12 +213,12 @@ app.get('/database/profile', authMiddleware, (req, res) => {
     });
 });
 
-app.get('/database/check-first-user', (req, res) => {
+app.get('/check-first-user', (req, res) => {
     const userCount = db.prepare('SELECT COUNT(*) as count FROM users').get().count;
     return res.json({ isFirstUser: userCount === 0 });
 });
 
-app.get('/database/admin/settings', authMiddleware, (req, res) => {
+app.get('/admin/settings', authMiddleware, (req, res) => {
     const user = db.prepare('SELECT is_admin FROM users WHERE id = ?').get(req.user.id);
     if (!user || !user.is_admin) return res.status(403).json({ error: 'Admin access required' });
 
@@ -226,7 +226,7 @@ app.get('/database/admin/settings', authMiddleware, (req, res) => {
     return res.json({ settings });
 });
 
-app.post('/database/admin/settings', authMiddleware, (req, res) => {
+app.post('/admin/settings', authMiddleware, (req, res) => {
     const user = db.prepare('SELECT is_admin FROM users WHERE id = ?').get(req.user.id);
     if (!user || !user.is_admin) return res.status(403).json({ error: 'Admin access required' });
 
@@ -242,7 +242,7 @@ app.post('/database/admin/settings', authMiddleware, (req, res) => {
 app.use('/file', authMiddleware);
 app.use('/files', authMiddleware);
 
-app.post('/database/user/data', authMiddleware, (req, res) => {
+app.post('/user/data', authMiddleware, (req, res) => {
     const { recentFiles, starredFiles, folderShortcuts, openTabs, currentPath } = req.body;
     const userId = req.user.id;
 
@@ -294,7 +294,7 @@ app.post('/database/user/data', authMiddleware, (req, res) => {
     }
 });
 
-app.get('/database/user/data', authMiddleware, (req, res) => {
+app.get('/user/data', authMiddleware, (req, res) => {
     const userId = req.user.id;
 
     try {
