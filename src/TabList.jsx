@@ -22,18 +22,22 @@ export function TabList({ tabs, activeTab, setActiveTab, closeTab, onHomeClick }
                 overflowX: 'auto',
                 width: '100%',
                 scrollbarWidth: 'thin',
-                scrollbarColor: '#4A5568 #2F3740',
-                '&::-webkit-scrollbar': {
-                    height: '6px'
-                },
-                '&::-webkit-scrollbar-track': {
-                    background: '#2F3740'
-                },
-                '&::-webkit-scrollbar-thumb': {
-                    background: '#4A5568',
-                    borderRadius: '3px'
-                }
+                scrollbarColor: '#4A5568 #2F3740'
             }}>
+                <style>
+                    {`
+                        div::-webkit-scrollbar {
+                            height: 6px;
+                        }
+                        div::-webkit-scrollbar-track {
+                            background: #2F3740;
+                        }
+                        div::-webkit-scrollbar-thumb {
+                            background: #4A5568;
+                            border-radius: 3px;
+                        }
+                    `}
+                </style>
                 <div 
                     style={{
                         display: 'flex',

@@ -52,7 +52,6 @@ export function HomeView({ onFileSelect, recentFiles, starredFiles, setStarredFi
     };
 
     const FileItem = ({ file, onStar, onRemove, showRemove }) => {
-        // Extract parent folder from file.path
         const parentFolder = file.path.substring(0, file.path.lastIndexOf('/')) || '/';
         return (
             <Paper
@@ -62,6 +61,7 @@ export function HomeView({ onFileSelect, recentFiles, starredFiles, setStarredFi
                     border: '1px solid #4A5568',
                     cursor: 'pointer',
                     height: '100%',
+                    maxWidth: '100%',
                     transition: 'background 0.2s',
                     display: 'flex',
                     alignItems: 'center',
@@ -79,58 +79,41 @@ export function HomeView({ onFileSelect, recentFiles, starredFiles, setStarredFi
                     maxWidth: 'calc(100% - 40px)',
                     overflow: 'hidden',
                 }}>
-                    <IconFile size={16} color="#A0AEC0" style={{ flexShrink: 0 }} />
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                        <Text size="sm" color="white" style={{ wordBreak: 'break-word', whiteSpace: 'normal', userSelect: 'none', marginLeft: 8, overflow: 'hidden', textOverflow: 'ellipsis' }}>{file.name}</Text>
-                        <Text size="xs" color="dimmed" style={{ lineHeight: 1.2, marginTop: 2, marginLeft: 8, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{file.path}</Text>
+                    <IconFile size={16} color="#A0AEC0" style={{ userSelect: 'none', flexShrink: 0 }} />
+                    <div style={{ flex: 1, minWidth: 0, marginLeft: 8 }}>
+                        <Text size="sm" color="white" style={{ lineHeight: 1.2, wordBreak: 'break-word', whiteSpace: 'normal', userSelect: 'none', overflow: 'hidden', textOverflow: 'ellipsis' }}>{file.name}</Text>
+                        <Text size="xs" color="dimmed" style={{ lineHeight: 1.2, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{file.path}</Text>
                     </div>
                 </div>
-                <div style={{
-                    position: 'relative',
-                    right: 0,
-                    top: 0,
-                    height: '100%',
+                <div style={{ 
                     display: 'flex',
                     alignItems: 'center',
-                    justifyContent: 'center',
-                    width: 32,
+                    gap: 4,
+                    paddingLeft: 4
                 }}>
                     <ActionIcon
                         variant="subtle"
                         color="yellow"
-                        style={{ borderRadius: 0, marginLeft: 0, background: 'none', width: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
+                        style={{ borderRadius: '50%', marginLeft: 0, background: 'none', width: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
                         onClick={e => {
                             e.stopPropagation();
                             onStar(file);
                         }}
-                        onMouseEnter={e => {
-                            const icon = e.currentTarget.querySelector('.star-icon');
-                            if (icon) icon.setAttribute('data-hover', 'true');
-                        }}
-                        onMouseLeave={e => {
-                            const icon = e.currentTarget.querySelector('.star-icon');
-                            if (icon) icon.removeAttribute('data-hover');
-                        }}
                     >
-                        {starredFiles.some(f => f.path === file.path)
-                            ? <IconStarFilled size={16} className="star-icon" />
-                            : <StarHoverableIcon size={16} />
-                        }
+                        {starredFiles.some(f => f.path === file.path) ? (
+                            <IconStarFilled size={16} />
+                        ) : (
+                            <StarHoverableIcon size={16} />
+                        )}
                     </ActionIcon>
                     {showRemove && (
                         <ActionIcon
                             variant="subtle"
                             color="red"
-                            style={{ borderRadius: 0, marginLeft: 0, background: 'none', width: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
+                            style={{ borderRadius: '50%', marginLeft: 0, background: 'none', width: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
                             onClick={e => {
                                 e.stopPropagation();
-                                if (onRemove) onRemove(file);
-                            }}
-                            onMouseOver={e => {
-                                e.currentTarget.querySelector('svg').style.color = '#ff4d4f';
-                            }}
-                            onMouseOut={e => {
-                                e.currentTarget.querySelector('svg').style.color = '';
+                                onRemove(file);
                             }}
                         >
                             <IconTrash size={16} />
@@ -149,6 +132,7 @@ export function HomeView({ onFileSelect, recentFiles, starredFiles, setStarredFi
                 border: '1px solid #4A5568',
                 cursor: 'pointer',
                 height: '100%',
+                maxWidth: '100%',
                 transition: 'background 0.2s',
             }}
             onMouseOver={e => e.currentTarget.style.backgroundColor = '#4A5568'}
@@ -163,34 +147,30 @@ export function HomeView({ onFileSelect, recentFiles, starredFiles, setStarredFi
                     <Text size="sm" color="white" style={{ lineHeight: 1.2, wordBreak: 'break-word', whiteSpace: 'normal', userSelect: 'none', overflow: 'hidden', textOverflow: 'ellipsis' }}>{folder.name}</Text>
                     <Text size="xs" color="dimmed" style={{ lineHeight: 1.2, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{folder.path}</Text>
                 </div>
-                <div style={{ 
-                    display: 'flex',
-                    alignItems: 'center'
-                }}>
-                    <ActionIcon
-                        variant="subtle"
-                        color="red"
-                        style={{ borderRadius: 0, marginLeft: 0, background: 'none', width: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
-                        onClick={e => {
-                            e.stopPropagation();
-                            onRemove(folder);
-                        }}
-                        onMouseOver={e => {
-                            e.currentTarget.querySelector('svg').style.color = '#ff4d4f';
-                        }}
-                        onMouseOut={e => {
-                            e.currentTarget.querySelector('svg').style.color = '';
-                        }}
-                    >
-                        <IconTrash size={16} />
-                    </ActionIcon>
-                </div>
+                <ActionIcon
+                    variant="subtle"
+                    color="red"
+                    style={{ borderRadius: '50%', marginLeft: 0, background: 'none', width: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
+                    onClick={e => {
+                        e.stopPropagation();
+                        onRemove(folder);
+                    }}
+                >
+                    <IconTrash size={16} />
+                </ActionIcon>
             </Group>
         </Paper>
     );
 
     return (
-        <Stack h="100%" spacing="md" p="md" style={{ color: 'white' }}>
+        <Stack
+            h="100%"
+            spacing="md"
+            p="md"
+            style={{
+                color: 'white'
+            }}
+        >
             <Group spacing="md" mb="md">
                 <Button
                     variant="filled"
@@ -227,7 +207,7 @@ export function HomeView({ onFileSelect, recentFiles, starredFiles, setStarredFi
                 </Button>
             </Group>
             {activeSection === 'recent' && (
-                <ScrollArea h="calc(100vh - 200px)">
+                <div style={{ height: 'calc(100vh - 200px)', overflow: 'hidden' }}>
                     <SimpleGrid cols={3} spacing="md">
                         {recentFiles.length === 0 ? (
                             <Text color="dimmed" align="center" style={{ gridColumn: '1 / -1', padding: '2rem' }}>No recent files</Text>
@@ -243,10 +223,10 @@ export function HomeView({ onFileSelect, recentFiles, starredFiles, setStarredFi
                             ))
                         )}
                     </SimpleGrid>
-                </ScrollArea>
+                </div>
             )}
             {activeSection === 'starred' && (
-                <ScrollArea h="calc(100vh - 200px)">
+                <div style={{ height: 'calc(100vh - 200px)', overflow: 'hidden' }}>
                     <SimpleGrid cols={3} spacing="md">
                         {starredFiles.length === 0 ? (
                             <Text color="dimmed" align="center" style={{ gridColumn: '1 / -1', padding: '2rem' }}>No starred files</Text>
@@ -261,7 +241,7 @@ export function HomeView({ onFileSelect, recentFiles, starredFiles, setStarredFi
                             ))
                         )}
                     </SimpleGrid>
-                </ScrollArea>
+                </div>
             )}
             {activeSection === 'folders' && (
                 <Stack spacing="md">
@@ -283,7 +263,7 @@ export function HomeView({ onFileSelect, recentFiles, starredFiles, setStarredFi
                             }}
                         />
                         <Button
-                            leftIcon={<IconPlus size={16} />}
+                            leftSection={<IconPlus size={16} />}
                             onClick={handleAddFolder}
                             variant="filled"
                             color="blue"
@@ -299,7 +279,7 @@ export function HomeView({ onFileSelect, recentFiles, starredFiles, setStarredFi
                         </Button>
                     </Group>
                     <Divider color="#4A5568" />
-                    <ScrollArea h="calc(100vh - 280px)">
+                    <div style={{ height: 'calc(100vh - 280px)', overflow: 'hidden' }}>
                         <SimpleGrid cols={3} spacing="md">
                             {folderShortcuts.length === 0 ? (
                                 <Text color="dimmed" align="center" style={{ gridColumn: '1 / -1', padding: '2rem' }}>No folder shortcuts</Text>
@@ -313,7 +293,7 @@ export function HomeView({ onFileSelect, recentFiles, starredFiles, setStarredFi
                                 ))
                             )}
                         </SimpleGrid>
-                    </ScrollArea>
+                    </div>
                 </Stack>
             )}
         </Stack>

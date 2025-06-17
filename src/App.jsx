@@ -1,6 +1,6 @@
 import {useState, useEffect} from 'react'
 import '@mantine/core/styles.css';
-import {MantineProvider, AppShell, Burger, createTheme, Button, Group} from '@mantine/core';
+import {MantineProvider, AppShell, Burger, createTheme, Button, Group, ActionIcon} from '@mantine/core';
 import {useDisclosure} from '@mantine/hooks';
 import {CodeEditor} from "./CodeEditor.jsx";
 import {FileViewer} from "./FileViewer.jsx";
@@ -14,6 +14,10 @@ const isLocalhost = window.location.hostname === 'localhost' || window.location.
 const API_BASE = isLocalhost
     ? `${window.location.protocol}//${window.location.hostname}:8082`
     : `${window.location.protocol}//${window.location.hostname}/fileviewer`;
+
+const DB_API_BASE = isLocalhost
+    ? `${window.location.protocol}//${window.location.hostname}:8081/database`
+    : `${window.location.protocol}//${window.location.hostname}/database`;
 
 const theme = createTheme({
     colors: {
@@ -53,49 +57,54 @@ function App() {
         });
     };
 
+    const createTab = (file, folderPath) => {
+        const normalizedPath = `${folderPath}/${file}`.replace(/\\/g, '/').replace(/\/+/g, '/');
+        const newTab = {
+            id: uuidv4(),
+            name: file,
+            path: normalizedPath,
+            content: '',
+            isDirty: false,
+            savedContent: ''
+        };
+
+        fetch(`${API_BASE}/file?folder=${encodeURIComponent(folderPath)}&name=${encodeURIComponent(file)}`, {
+            headers: token ? { 'Authorization': `Bearer ${token}` } : (localStorage.getItem('token') ? { 'Authorization': `Bearer ${localStorage.getItem('token')}` } : {})
+        })
+            .then(res => {
+                if (!res.ok) throw new Error(res.statusText);
+                return res.text();
+            })
+            .then(content => {
+                setTabState(prev2 => ({
+                    ...prev2,
+                    tabs: prev2.tabs.map(tab =>
+                        tab.id === newTab.id
+                            ? { ...tab, content, savedContent: content }
+                            : tab
+                    )
+                }));
+            })
+
+        return newTab;
+    };
+
     const handleFileSelect = (file, folderPath) => {
         if (!file) {
             setFolder(folderPath);
             setTabState(prev => ({ ...prev, activeTab: 'fileviewer' }));
             return;
         }
-        const normalizedPath = `${folderPath}/${file}`.replace(/\\/g, '/').replace(/\/+/g, '/');
         setTabState(prev => {
+            const normalizedPath = `${folderPath}/${file}`.replace(/\\/g, '/').replace(/\/+/g, '/');
+
             const existingTab = prev.tabs.find(tab => tab.path === normalizedPath);
             if (existingTab) {
                 return { ...prev, activeTab: existingTab.id };
             }
-            const newTab = {
-                id: uuidv4(),
-                name: file,
-                path: normalizedPath,
-                content: '',
-                isDirty: false,
-                savedContent: ''
-            };
-            if (folderPath === folder) {
-                setFolder(folderPath);
-            }
-            // Load file content asynchronously
-            fetch(`${API_BASE}/file?folder=${encodeURIComponent(folderPath)}&name=${encodeURIComponent(file)}`, {
-                headers: token ? { 'Authorization': `Bearer ${token}` } : (localStorage.getItem('token') ? { 'Authorization': `Bearer ${localStorage.getItem('token')}` } : {})
-            })
-                .then(res => {
-                    if (!res.ok) throw new Error(res.statusText);
-                    return res.text();
-                })
-                .then(content => {
-                    setTabState(prev2 => ({
-                        ...prev2,
-                        tabs: prev2.tabs.map(tab =>
-                            tab.id === newTab.id
-                                ? { ...tab, content, savedContent: content }
-                                : tab
-                        )
-                    }));
-                })
-                .catch(e => console.error('Error loading file:', e));
-            // Add to recent files
+
+            const newTab = createTab(file, folderPath);
+
             const fileInfo = {
                 name: file,
                 path: normalizedPath,
@@ -105,6 +114,7 @@ function App() {
                 const filtered = prev.filter(f => f.path !== fileInfo.path);
                 return [fileInfo, ...filtered].slice(0, 10);
             });
+
             return { tabs: [...prev.tabs, newTab], activeTab: newTab.id };
         });
     };
@@ -139,7 +149,6 @@ function App() {
         });
         window.dispatchEvent(saveEvent);
 
-        // Update the saved content and clear dirty state
         setTabState(prev => ({
             ...prev,
             tabs: prev.tabs.map(tab =>
@@ -161,11 +170,175 @@ function App() {
     const activeTabData = tabs.find(tab => tab.id === activeTab);
     const hasUnsavedChanges = activeTabData?.isDirty;
 
-    // Called by User.jsx when authenticated
+    const [isInitialLoad, setIsInitialLoad] = useState(true);
+    const [isLoading, setIsLoading] = useState(false);
+    const [pendingTabs, setPendingTabs] = useState([]);
+
+    useEffect(() => {
+        if (user && authReady && isInitialLoad && !isLoading) {
+            setIsLoading(true);
+            loadBasicUserData().then(() => {
+                setIsInitialLoad(false);
+                setIsLoading(false);
+            }).catch(error => {
+                setIsLoading(false);
+            });
+        }
+    }, [user, authReady]);
+
+    useEffect(() => {
+        if (pendingTabs.length > 0 && !isLoading) {
+            restoreTabs(pendingTabs);
+        }
+    }, [pendingTabs, isLoading]);
+
+    const loadBasicUserData = async () => {
+        if (!user) return;
+        try {
+            const response = await fetch(`${DB_API_BASE}/user/data`, {
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                }
+            });
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(`Failed to load user data: ${errorData.error || response.statusText}`);
+            }
+            const data = await response.json();
+
+            setRecentFiles([]);
+            setStarredFiles([]);
+            setFolderShortcuts([]);
+            setFolder('/');
+            setTabState({ tabs: [], activeTab: 'home' });
+
+            if (Array.isArray(data.recentFiles)) {
+                setRecentFiles(data.recentFiles);
+            }
+
+            if (Array.isArray(data.starredFiles)) {
+                setStarredFiles(data.starredFiles);
+            }
+
+            if (Array.isArray(data.folderShortcuts)) {
+                setFolderShortcuts(data.folderShortcuts);
+            }
+
+            if (typeof data.currentPath === 'string') {
+                setFolder(data.currentPath);
+            }
+
+            if (Array.isArray(data.openTabs) && data.openTabs.length > 0) {
+                setPendingTabs(data.openTabs);
+            }
+        } catch (error) {
+            throw error;
+        }
+    };
+
+    const restoreTabs = async (tabsToRestore) => {
+        const newTabs = [];
+        
+        for (const tab of tabsToRestore) {
+            const pathParts = tab.path.split('/').filter(Boolean);
+            const fileName = pathParts.pop() || '';
+            const folderPath = '/' + pathParts.join('/');
+            
+            try {
+                const fileCheckResponse = await fetch(`${API_BASE}/files?folder=${encodeURIComponent(folderPath)}`, {
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+                });
+                
+                if (!fileCheckResponse.ok) {
+                    continue;
+                }
+
+                const files = await fileCheckResponse.json();
+                const fileExists = files.some(f => f.name === fileName && f.type === 'file');
+                
+                if (!fileExists) {
+                    continue;
+                }
+
+                const contentResponse = await fetch(`${API_BASE}/file?folder=${encodeURIComponent(folderPath)}&name=${encodeURIComponent(fileName)}`, {
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+                });
+                
+                if (contentResponse.ok) {
+                    const content = await contentResponse.text();
+                    const newTab = {
+                        id: uuidv4(),
+                        name: fileName,
+                        path: tab.path,
+                        content: content,
+                        savedContent: content,
+                        isDirty: false
+                    };
+                    newTabs.push(newTab);
+                } else {}
+            } catch (error) {}
+        }
+        
+        if (newTabs.length > 0) {
+            setTabState(prev => ({
+                ...prev,
+                tabs: newTabs,
+                activeTab: 'home'
+            }));
+        } else {
+        }
+
+        setPendingTabs([]);
+    };
+
+    useEffect(() => {
+        if (user && !isInitialLoad && !isLoading && pendingTabs.length === 0) {
+            saveUserData();
+        }
+    }, [tabState.tabs, tabState.activeTab, recentFiles, starredFiles, folderShortcuts, folder, user, isInitialLoad, isLoading, pendingTabs]);
+
+    const saveUserData = async () => {
+        if (!user || isLoading) return;
+        const dataToSave = {
+            recentFiles,
+            starredFiles,
+            folderShortcuts,
+            openTabs: tabState.tabs.map(tab => ({
+                id: tab.id,
+                name: tab.name,
+                path: tab.path,
+                content: tab.content,
+                savedContent: tab.savedContent,
+                isDirty: tab.isDirty
+            })),
+            currentPath: folder
+        };
+        try {
+            const response = await fetch(`${DB_API_BASE}/user/data`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                },
+                body: JSON.stringify(dataToSave)
+            });
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(`Failed to save user data: ${errorData.error || response.statusText}`);
+            }
+        } catch (error) {
+        }
+    };
+
     const handleAuth = (token, user) => {
         setToken(token);
         setUser(user);
         setAuthReady(true);
+    };
+
+    const handleLogout = () => {
+        localStorage.removeItem('token');
+        window.location.href = window.location.href;
     };
 
     return (
@@ -201,9 +374,14 @@ function App() {
                     padding: '0 8px',
                     gap: '8px'
                 }}>
-                        <Button
-                            variant="filled"
-                            style={{
+                    <Burger
+                        opened={opened}
+                        size="sm"
+                        color="white"
+                        lineSize={2}
+                        onClick={toggle}
+                        styles={{
+                            root: {
                                 backgroundColor: '#2f3740',
                                 border: '1px solid #4A5568',
                                 color: 'white',
@@ -218,18 +396,11 @@ function App() {
                                 justifyContent: 'center',
                                 minWidth: 0,
                                 padding: 0,
-                            }}
-                            onClick={toggle}
-                            onMouseOver={e => e.currentTarget.style.backgroundColor = '#4A5568'}
-                            onMouseOut={e => e.currentTarget.style.backgroundColor = '#2f3740'}
-                        >
-                    <Burger
-                        opened={opened}
-                        size="sm"
-                        color="white"
-                                lineSize={2}
+                            }
+                        }}
+                        onMouseOver={e => e.currentTarget.style.backgroundColor = '#4A5568'}
+                        onMouseOut={e => e.currentTarget.style.backgroundColor = '#2f3740'}
                     />
-                        </Button>
                     <TabList
                         tabs={tabs}
                         activeTab={activeTab}
@@ -263,24 +434,24 @@ function App() {
                 </AppShell.Header>
                 <AppShell.Navbar p="md" style={{ 
                     backgroundColor: '#36414C',
-                        color: 'white',
-                        position: 'relative',
-                        overflow: 'hidden',
-                    }}>
-                        {(!user || !authReady) && (
-                            <div
-                                style={{
-                                    position: 'absolute',
-                                    inset: 0,
-                                    zIndex: 10,
-                                    background: '#282c34',
-                                    opacity: 1,
-                                    backdropFilter: 'blur(2px)',
-                                    WebkitBackdropFilter: 'blur(2px)',
-                                    pointerEvents: 'none',
-                                }}
-                            />
-                        )}
+                    color: 'white',
+                    position: 'relative',
+                    overflow: 'hidden',
+                }}>
+                    {!user && (
+                        <div
+                            style={{
+                                position: 'absolute',
+                                inset: 0,
+                                zIndex: 10,
+                                background: '#282c34',
+                                opacity: 1,
+                                backdropFilter: 'blur(2px)',
+                                WebkitBackdropFilter: 'blur(2px)',
+                                pointerEvents: 'none',
+                            }}
+                        />
+                    )}
                     <FileViewer 
                         onFileSelect={handleFileSelect}
                         starredFiles={starredFiles}
@@ -290,21 +461,36 @@ function App() {
                         tabs={tabs}
                     />
                 </AppShell.Navbar>
-                    <AppShell.Main className="h-full w-full" style={{ backgroundColor: '#282c34', position: 'relative', overflow: 'hidden' }}>
-                        {(!user || !authReady) && (
-                            <div
-                                style={{
-                                    position: 'absolute',
-                                    inset: 0,
-                                    zIndex: 10,
-                                    background: '#282c34',
-                                    opacity: 1,
-                                    backdropFilter: 'blur(2px)',
-                                    WebkitBackdropFilter: 'blur(2px)',
-                                    pointerEvents: 'none',
-                                }}
-                            />
-                        )}
+                <AppShell.Main 
+                    className="h-full w-full" 
+                    style={{ 
+                        backgroundColor: '#282c34', 
+                        position: 'absolute',
+                        top: 60,
+                        left: opened ? 300 : 0,
+                        right: 0,
+                        bottom: 0,
+                        overflow: 'hidden',
+                        margin: 0,
+                        padding: 0,
+                        width: opened ? 'calc(100% - 300px)' : '100%',
+                        transition: 'width 0.2s, left 0.2s'
+                    }}
+                >
+                    {!user && (
+                        <div
+                            style={{
+                                position: 'absolute',
+                                inset: 0,
+                                zIndex: 10,
+                                background: '#282c34',
+                                opacity: 1,
+                                backdropFilter: 'blur(2px)',
+                                WebkitBackdropFilter: 'blur(2px)',
+                                pointerEvents: 'none',
+                            }}
+                        />
+                    )}
                     {activeTab === 'home' ? (
                         <HomeView 
                             onFileSelect={handleFileSelect}
@@ -335,8 +521,7 @@ function App() {
                     )}
                 </AppShell.Main>
             </AppShell>
-                {/* Login/signup modal overlay, always rendered */}
-                {(!user || !authReady) && (
+                {!user && (
                     <User onAuth={handleAuth} user={user} setUser={setUser} setShowSettings={setShowSettings} />
                 )}
             </div>

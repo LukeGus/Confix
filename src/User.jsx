@@ -7,7 +7,7 @@ const API_BASE = window.location.hostname === 'localhost' || window.location.hos
     : `${window.location.protocol}//${window.location.hostname}/database`;
 
 export function User({ onAuth, user, setUser, setShowSettings }) {
-    const [mode, setMode] = useState('login'); // 'login' or 'signup'
+    const [mode, setMode] = useState('login');
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
@@ -18,7 +18,6 @@ export function User({ onAuth, user, setUser, setShowSettings }) {
     const [signupEnabled, setSignupEnabled] = useState(true);
     const [isFirstUser, setIsFirstUser] = useState(false);
 
-    // Check if this is the first user
     useEffect(() => {
         if (mode === 'signup') {
             fetch(`${API_BASE}/check-first-user`)
@@ -26,11 +25,9 @@ export function User({ onAuth, user, setUser, setShowSettings }) {
                 .then(data => {
                     setIsFirstUser(data.isFirstUser);
                 })
-                .catch(console.error);
         }
     }, [mode]);
 
-    // Auto-login on mount
     useEffect(() => {
         const token = localStorage.getItem('token');
         if (token && !autoLoginTried) {
@@ -62,7 +59,6 @@ export function User({ onAuth, user, setUser, setShowSettings }) {
         }
     }, [setUser, onAuth, autoLoginTried]);
 
-    // Load admin settings when admin modal opens
     useEffect(() => {
         if (adminModalOpen && user?.isAdmin) {
             fetch(`${API_BASE}/admin/settings`, {
@@ -74,7 +70,6 @@ export function User({ onAuth, user, setUser, setShowSettings }) {
                         setSignupEnabled(data.settings.signup_enabled);
                     }
                 })
-                .catch(console.error);
         }
     }, [adminModalOpen, user]);
 
@@ -112,6 +107,7 @@ export function User({ onAuth, user, setUser, setShowSettings }) {
         setUser(null);
         setProfileModalOpen(false);
         if (setShowSettings) setShowSettings(false);
+        window.location.href = window.location.href;
     };
 
     const handleSignupToggle = async (checked) => {
@@ -127,12 +123,9 @@ export function User({ onAuth, user, setUser, setShowSettings }) {
             if (res.ok) {
                 setSignupEnabled(checked);
             }
-        } catch (error) {
-            console.error('Failed to update settings:', error);
-        }
+        } catch (error) {}
     };
 
-    // Show login/signup modal if not authenticated
     if (!user) {
         return (
             <div style={{
@@ -200,7 +193,6 @@ export function User({ onAuth, user, setUser, setShowSettings }) {
         );
     }
 
-    // Profile/settings/logout button for top bar
     if (user && !loading) {
         return (
             <>

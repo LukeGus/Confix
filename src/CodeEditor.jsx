@@ -8,7 +8,6 @@ export function CodeEditor({ isNavbarOpen, content, onContentChange }) {
         height: window.innerHeight - 60 - 3,
     });
 
-    // Handle window resize
     useEffect(() => {
         const handleResize = () => {
             setDimensions({
@@ -21,7 +20,6 @@ export function CodeEditor({ isNavbarOpen, content, onContentChange }) {
         return () => window.removeEventListener('resize', handleResize);
     }, [isNavbarOpen]);
 
-    // Handle navbar state changes
     useEffect(() => {
         setDimensions(prev => ({
             ...prev,

@@ -18,8 +18,6 @@ const logger = {
 
 (async () => {
     try {
-        logger.info("Starting all backend servers...");
-        
         logger.info("All servers started successfully");
 
         process.on('SIGINT', () => {

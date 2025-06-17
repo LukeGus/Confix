@@ -24,7 +24,7 @@ const getReadableTimestamp = () => {
 };
 
 const logger = {
-    info: (...args) => console.log(`💾 |  🔧 [${getReadableTimestamp()}] INFO:`, ...args),
+    info: (...args) => console.log(`💾 | 🔧 [${getReadableTimestamp()}] INFO:`, ...args),
     error: (...args) => console.error(`💾 | ❌ [${getReadableTimestamp()}] ERROR:`, ...args),
     warn: (...args) => console.warn(`💾 | ⚠️ [${getReadableTimestamp()}] WARN:`, ...args),
     debug: (...args) => console.debug(`💾 | 🔍 [${getReadableTimestamp()}] DEBUG:`, ...args)
@@ -34,7 +34,6 @@ const SALT = process.env.SALT || 'default_salt';
 const JWT_SECRET = SALT + '_jwt_secret';
 const DB_PATH = path.join(__dirname, 'users.db');
 
-// Initialize DB
 const db = new Database(DB_PATH);
 db.pragma('journal_mode = WAL');
 db.prepare(`CREATE TABLE IF NOT EXISTS users (
@@ -50,16 +49,59 @@ db.prepare(`CREATE TABLE IF NOT EXISTS settings (
     signup_enabled BOOLEAN DEFAULT 1
 )`).run();
 
-// Initialize settings if not exists
 const settingsCount = db.prepare('SELECT COUNT(*) as count FROM settings').get().count;
 if (settingsCount === 0) {
     db.prepare('INSERT INTO settings (signup_enabled) VALUES (1)').run();
 }
 
+db.prepare(`CREATE TABLE IF NOT EXISTS user_recent_files (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    file_path TEXT NOT NULL,
+    file_name TEXT NOT NULL,
+    last_opened TEXT NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+)`).run();
+
+db.prepare(`CREATE TABLE IF NOT EXISTS user_starred_files (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    file_path TEXT NOT NULL,
+    file_name TEXT NOT NULL,
+    last_opened TEXT NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+)`).run();
+
+db.prepare(`CREATE TABLE IF NOT EXISTS user_folder_shortcuts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    folder_path TEXT NOT NULL,
+    folder_name TEXT NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+)`).run();
+
+db.prepare(`CREATE TABLE IF NOT EXISTS user_open_tabs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    tab_id TEXT NOT NULL,
+    file_name TEXT NOT NULL,
+    file_path TEXT NOT NULL,
+    content TEXT,
+    saved_content TEXT,
+    is_dirty BOOLEAN DEFAULT 0,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+)`).run();
+
+db.prepare(`CREATE TABLE IF NOT EXISTS user_current_path (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL UNIQUE,
+    current_path TEXT NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+)`).run();
+
 function getKeyAndIV() {
-    // 32 bytes key for aes-256-ctr, 16 bytes IV
     const key = crypto.createHash('sha256').update(SALT).digest();
-    const iv = Buffer.alloc(16, 0); // Not secure for production, but fine for local dev
+    const iv = Buffer.alloc(16, 0);
     return { key, iv };
 }
 
@@ -97,19 +139,16 @@ function authMiddleware(req, res, next) {
     }
 }
 
-// User registration
 app.post('/database/register', async (req, res) => {
     const { username, password } = req.body;
     if (!username || !password) return res.status(400).json({ error: 'Username and password required' });
 
-    // Check if signups are enabled
     const settings = db.prepare('SELECT signup_enabled FROM settings WHERE id = 1').get();
     if (!settings.signup_enabled) {
         return res.status(403).json({ error: 'Signups are currently disabled' });
     }
 
     try {
-        // Check if this is the first user
         const userCount = db.prepare('SELECT COUNT(*) as count FROM users').get().count;
         const isFirstUser = userCount === 0;
 
@@ -117,7 +156,6 @@ app.post('/database/register', async (req, res) => {
         const stmt = db.prepare('INSERT INTO users (username, password, created_at, is_admin) VALUES (?, ?, ?, ?)');
         stmt.run(username, encrypt(hash), new Date().toISOString(), isFirstUser ? 1 : 0);
 
-        // Immediately log in the user after registration
         const user = db.prepare('SELECT * FROM users WHERE username = ?').get(username);
         const token = generateToken(user);
         return res.json({ 
@@ -138,7 +176,6 @@ app.post('/database/register', async (req, res) => {
     }
 });
 
-// User login
 app.post('/database/login', async (req, res) => {
     const { username, password } = req.body;
     if (!username || !password) return res.status(401).json({ error: 'Username and password required' });
@@ -163,7 +200,6 @@ app.post('/database/login', async (req, res) => {
     }
 });
 
-// Get current user profile
 app.get('/database/profile', authMiddleware, (req, res) => {
     const user = db.prepare('SELECT id, username, created_at, is_admin FROM users WHERE id = ?').get(req.user.id);
     if (!user) return res.status(404).json({ error: 'User not found' });
@@ -177,13 +213,11 @@ app.get('/database/profile', authMiddleware, (req, res) => {
     });
 });
 
-// Check if this is the first user
 app.get('/database/check-first-user', (req, res) => {
     const userCount = db.prepare('SELECT COUNT(*) as count FROM users').get().count;
     return res.json({ isFirstUser: userCount === 0 });
 });
 
-// Get admin settings
 app.get('/database/admin/settings', authMiddleware, (req, res) => {
     const user = db.prepare('SELECT is_admin FROM users WHERE id = ?').get(req.user.id);
     if (!user || !user.is_admin) return res.status(403).json({ error: 'Admin access required' });
@@ -192,7 +226,6 @@ app.get('/database/admin/settings', authMiddleware, (req, res) => {
     return res.json({ settings });
 });
 
-// Update admin settings
 app.post('/database/admin/settings', authMiddleware, (req, res) => {
     const user = db.prepare('SELECT is_admin FROM users WHERE id = ?').get(req.user.id);
     if (!user || !user.is_admin) return res.status(403).json({ error: 'Admin access required' });
@@ -206,9 +239,88 @@ app.post('/database/admin/settings', authMiddleware, (req, res) => {
     return res.json({ message: 'Settings updated successfully' });
 });
 
-// Protect all routes below this
 app.use('/file', authMiddleware);
 app.use('/files', authMiddleware);
+
+app.post('/database/user/data', authMiddleware, (req, res) => {
+    const { recentFiles, starredFiles, folderShortcuts, openTabs, currentPath } = req.body;
+    const userId = req.user.id;
+
+    try {
+        db.prepare('BEGIN').run();
+
+        if (recentFiles) {
+            db.prepare('DELETE FROM user_recent_files WHERE user_id = ?').run(userId);
+            const stmt = db.prepare('INSERT INTO user_recent_files (user_id, file_path, file_name, last_opened) VALUES (?, ?, ?, ?)');
+            recentFiles.forEach(file => {
+                stmt.run(userId, file.path, file.name, file.lastOpened);
+            });
+        }
+
+        if (starredFiles) {
+            db.prepare('DELETE FROM user_starred_files WHERE user_id = ?').run(userId);
+            const stmt = db.prepare('INSERT INTO user_starred_files (user_id, file_path, file_name, last_opened) VALUES (?, ?, ?, ?)');
+            starredFiles.forEach(file => {
+                stmt.run(userId, file.path, file.name, file.lastOpened);
+            });
+        }
+
+        if (folderShortcuts) {
+            db.prepare('DELETE FROM user_folder_shortcuts WHERE user_id = ?').run(userId);
+            const stmt = db.prepare('INSERT INTO user_folder_shortcuts (user_id, folder_path, folder_name) VALUES (?, ?, ?)');
+            folderShortcuts.forEach(folder => {
+                stmt.run(userId, folder.path, folder.name);
+            });
+        }
+
+        if (openTabs) {
+            db.prepare('DELETE FROM user_open_tabs WHERE user_id = ?').run(userId);
+            const stmt = db.prepare('INSERT INTO user_open_tabs (user_id, tab_id, file_name, file_path, content, saved_content, is_dirty) VALUES (?, ?, ?, ?, ?, ?, ?)');
+            openTabs.forEach(tab => {
+                stmt.run(userId, tab.id, tab.name, tab.path, tab.content || '', tab.savedContent || '', tab.isDirty ? 1 : 0);
+            });
+        }
+
+        if (currentPath) {
+            db.prepare('INSERT OR REPLACE INTO user_current_path (user_id, current_path) VALUES (?, ?)').run(userId, currentPath);
+        }
+
+        db.prepare('COMMIT').run();
+        res.json({ message: 'User data saved successfully' });
+    } catch (err) {
+        db.prepare('ROLLBACK').run();
+        logger.error('Error saving user data:', err);
+        res.status(500).json({ error: 'Failed to save user data' });
+    }
+});
+
+app.get('/database/user/data', authMiddleware, (req, res) => {
+    const userId = req.user.id;
+
+    try {
+        const recentFiles = db.prepare('SELECT file_path as path, file_name as name, last_opened as lastOpened FROM user_recent_files WHERE user_id = ?').all(userId);
+
+        const starredFiles = db.prepare('SELECT file_path as path, file_name as name, last_opened as lastOpened FROM user_starred_files WHERE user_id = ?').all(userId);
+
+        const folderShortcuts = db.prepare('SELECT folder_path as path, folder_name as name FROM user_folder_shortcuts WHERE user_id = ?').all(userId);
+
+        const openTabs = db.prepare('SELECT tab_id as id, file_name as name, file_path as path, content, saved_content as savedContent, is_dirty as isDirty FROM user_open_tabs WHERE user_id = ?').all(userId);
+
+        const currentPath = db.prepare('SELECT current_path FROM user_current_path WHERE user_id = ?').get(userId);
+
+        const data = {
+            recentFiles,
+            starredFiles,
+            folderShortcuts,
+            openTabs,
+            currentPath: currentPath?.current_path || '/'
+        };
+        res.json(data);
+    } catch (err) {
+        logger.error('Error loading user data:', err);
+        res.status(500).json({ error: 'Failed to load user data' });
+    }
+});
 
 app.listen(PORT, () => {
     logger.info(`Database API listening at http://localhost:${PORT}`);

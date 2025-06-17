@@ -29,21 +29,17 @@ function normalizeFilePath(inputPath) {
         throw new Error('Invalid path');
     }
 
-    // Normalize slashes to forward slashes
     let normalizedPath = inputPath.replace(/\\/g, '/');
-    
-    // Handle Windows absolute paths (e.g., C:/Users/...)
+
     const windowsAbsPath = /^[a-zA-Z]:\//;
     if (windowsAbsPath.test(normalizedPath)) {
         return path.resolve(normalizedPath);
     }
-    
-    // Handle Unix absolute paths
+
     if (normalizedPath.startsWith('/')) {
         return path.resolve(normalizedPath);
     }
-    
-    // Handle relative paths
+
     return path.resolve(process.cwd(), normalizedPath);
 }
 
@@ -60,7 +56,6 @@ app.get('/files', (req, res) => {
         const folderParam = req.query.folder || '';
         const folderPath = normalizeFilePath(folderParam);
 
-        // Check if the path exists and is a directory
         if (!fs.existsSync(folderPath) || !isDirectory(folderPath)) {
             return res.status(404).json({ error: 'Directory not found' });
         }
@@ -93,7 +88,6 @@ app.get('/file', (req, res) => {
         const folderPath = normalizeFilePath(folderParam);
         const filePath = path.join(folderPath, fileName);
 
-        // Check if the file exists and is not a directory
         if (!fs.existsSync(filePath)) {
             logger.error(`File not found: ${filePath}`);
             return res.status(404).json({ error: 'File not found' });
@@ -104,7 +98,6 @@ app.get('/file', (req, res) => {
             return res.status(400).json({ error: 'Path is a directory' });
         }
 
-        // Read file content
         const content = fs.readFileSync(filePath, 'utf8');
         res.setHeader('Content-Type', 'text/plain');
         res.send(content);
@@ -126,7 +119,6 @@ app.post('/file', (req, res) => {
         const folderPath = normalizeFilePath(folderParam);
         const filePath = path.join(folderPath, fileName);
 
-        // Ensure the directory exists
         if (!fs.existsSync(folderPath)) {
             fs.mkdirSync(folderPath, { recursive: true });
         }

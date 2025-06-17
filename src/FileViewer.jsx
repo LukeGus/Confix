@@ -46,7 +46,6 @@ export function FileViewer(props) {
             const configs = [];
             for (const item of data) {
                 if (item.type === 'directory') {
-                    // Recursively scan subdirectories
                     const subConfigs = await scanFolderForConfigs(`${folderPath}/${item.name}`);
                     configs.push(...subConfigs);
                 } else if (CONFIG_FILE_EXTENSIONS.some(ext => item.name.toLowerCase().endsWith(ext))) {
@@ -59,7 +58,6 @@ export function FileViewer(props) {
             }
             return configs;
         } catch (error) {
-            console.error('Error scanning folder:', error);
             return [];
         }
     };
@@ -160,7 +158,6 @@ export function FileViewer(props) {
         }
     };
 
-    // Scroll input to end when folder changes
     useEffect(() => {
         if (pathInputRef.current) {
             const input = pathInputRef.current;
@@ -176,7 +173,9 @@ export function FileViewer(props) {
                     <TextInput
                         ref={pathInputRef}
                         value={folder}
-                        onChange={e => setFolder(e.target.value)}
+                        onChange={e => {
+                            setFolder(e.target.value);
+                        }}
                         placeholder="Enter folder path e.g. C:\\Users\\Luke or /Users/luke"
                         styles={{
                             input: {
@@ -346,7 +345,6 @@ export function FileViewer(props) {
 }
 
 function StarHoverableIcon(props) {
-    // This component will fill the star on hover using data-hover attribute
     const [hover, setHover] = useState(false);
     return (
         <span
