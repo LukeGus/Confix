@@ -16,7 +16,7 @@ const API_BASE = isLocalhost
     : `${window.location.protocol}//${window.location.hostname}/fileviewer`;
 
 const DB_API_BASE = isLocalhost
-    ? `${window.location.protocol}//${window.location.hostname}:8081/database`
+    ? `${window.location.protocol}//${window.location.hostname}:8081`
     : `${window.location.protocol}//${window.location.hostname}/database`;
 
 const theme = createTheme({

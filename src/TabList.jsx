@@ -35,7 +35,7 @@ export function TabList({ tabs, activeTab, setActiveTab, closeTab, onHomeClick }
                         div::-webkit-scrollbar-thumb {
                             background: #4A5568;
                             border-radius: 3px;
-                        }
+                }
                     `}
                 </style>
                 <div 
