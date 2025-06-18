@@ -1,17 +1,20 @@
 services:
   confix:
-    #image: ghcr.io/lukegus/confix:latest
-    image: ghcr.io/lukegus/confix:dev-0.1-development-latest
+    image: ghcr.io/lukegus/confix:latest
     container_name: confix
     restart: unless-stopped
     ports:
-      - "3800:8080"
+      - "8080:8080"
     volumes:
-      - confix-data:/app/data
+      - confix-data:/app/src/backend
+      # Add volume mappings for your configuration directories below.
+      # Example: - /apps/:/apps
+      # (Left side: path on your server, Right side: path as accessed inside the Confix file browser)
     environment:
       # Generate random salt here https://www.lastpass.com/features/password-generator (max 32 characters, include all characters for settings)
       SALT: "2v.F7!6a!jIzmJsu|[)h61$ZMXs;,i+~"
+      PORT: "8080"
 
 volumes:
   confix-data:
-    driver: local 
+    driver: local
