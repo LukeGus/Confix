@@ -75,7 +75,7 @@ If you need help with Confix, you can join the [Discord](https://discord.gg/jVQG
 # Show-off
 
 <video width="600" controls>
-  <source src="repo-images/DemoVideo1.mp4" type="video/mp4">
+  <source src="https://rawcdn.githack.com/LukeGus/Confix/ecb5fdb4af14c0fa35db029d3e701529050093d6/repo-images/DemoVideo1.mp4" type="video/mp4">
   Your browser does not support the video tag.
 </video>
 
