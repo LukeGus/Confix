@@ -74,7 +74,10 @@ If you need help with Confix, you can join the [Discord](https://discord.gg/jVQG
 
 # Show-off
 
-![Demo Video 1](repo-images/DemoVideo1.mp4)
+<video width="600" controls>
+  <source src="repo-images/DemoVideo1.mp4" type="video/mp4">
+  Your browser does not support the video tag.
+</video>
 
 # License
 Distributed under the MIT license. See LICENSE for more information.
