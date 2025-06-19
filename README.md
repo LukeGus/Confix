@@ -34,13 +34,17 @@ Confix is an open-source, forever-free, self-hosted local config editor. Its pur
 - User authentication/management system
 - Built-in file viewer for navigating your file system
 - Tab system to navigate between open config files
-- Seamlessly pick up where you left off with features that save your open tabs, track recently accessed files, let you star important config files, and quickly return to your saved directories.
+- Seamlessly pick up where you left off with features that save your open tabs, track recently accessed files, let you star important config files, and quickly return to your saved directories
 
 # Planned Features
 - Custom themes
 - Better syntax highlighting depending on the config language
 - Guest mode
 - User permissions (only certain users can access specific files or folders, etc.)
+- View config file diff (compare the config file to the previous version)
+- Remote config editing (SSH)
+- Config schema validation
+- Backup configs to compressed file
 
 # Installation
 Visit the Confix [wiki](https://github.com/LukeGus/Confix/wiki) for information on how to install Confix. You can also use these links to go directly to the guide: [Docker](https://github.com/LukeGus/Confix/wiki/Docker) or [manual install](https://github.com/LukeGus/Confix/wiki/Manual).
