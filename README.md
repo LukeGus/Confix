@@ -24,7 +24,7 @@ If you would like, you can support the project here!\
 [![PayPal](https://img.shields.io/badge/PayPal-00457C?style=for-the-badge&logo=paypal&logoColor=white)](https://paypal.me/LukeGustafson803)
 
 # Overview
-Confix is an open-source forever free self-hosted local config editor. Its purpose is to provide an all-in-one docker-hosted web solution to manage your servers config files, without having to enter SSH and use a tedious tool such as `nano`.
+Confix is an open-source, forever-free, self-hosted local config editor. Its purpose is to provide an all-in-one docker-hosted web solution to manage your servers config files, without having to enter SSH and use a tedious tool such as `nano`.
 
 ![Demo Image 1](repo-images/DemoImage1.png)
 
@@ -32,18 +32,18 @@ Confix is an open-source forever free self-hosted local config editor. Its purpo
 - Interactive text editor ([CodeMirror](https://uiwjs.github.io/react-codemirror/#/))
   - Features syntax highlighting, formatting, linting, styling, searching, etc.
 - User authentication/management system
-- Built in file viewer for navigating your file system
+- Built-in file viewer for navigating your file system
 - Tab system to navigate between open config files
 - Seamlessly pick up where you left off with features that save your open tabs, track recently accessed files, let you star important config files, and quickly return to your saved directories.
 
 # Planned Features
 - Custom themes
-- Better syntax highlighting depending on config language
+- Better syntax highlighting depending on the config language
 - Guest mode
-- User permissions (only some users can open certain files/folders, etc.)
+- User permissions (only certain users can access specific files or folders, etc.)
 
 # Installation
-Visit the Confix [Wiki](https://github.com/LukeGus/Confix/wiki) for information on how to install Confix. You can also use these links to go directly to guide: [Docker](https://github.com/LukeGus/Confix/wiki/Docker) or [manual install](https://github.com/LukeGus/Confix/wiki/Manual).
+Visit the Confix [wiki](https://github.com/LukeGus/Confix/wiki) for information on how to install Confix. You can also use these links to go directly to the guide: [Docker](https://github.com/LukeGus/Confix/wiki/Docker) or [manual install](https://github.com/LukeGus/Confix/wiki/Manual).
 
 Example docker compose:
 ```yaml
