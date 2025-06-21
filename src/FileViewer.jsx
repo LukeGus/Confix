@@ -5,7 +5,7 @@ import { IconArrowUp, IconFolder, IconFile, IconFolderOpen, IconStar, IconStarFi
 const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 const API_BASE = isLocalhost 
     ? `${window.location.protocol}//${window.location.hostname}:8082`
-    : `${window.location.protocol}//${window.location.hostname}/fileviewer`;
+    : `${window.location.protocol}//${window.location.hostname}:${window.location.port}/fileviewer`;
 
 const CONFIG_FILE_EXTENSIONS = [
     '.json', '.yaml', '.yml', '.xml', '.ini', '.conf', '.config',

@@ -4,7 +4,7 @@ import { IconUser, IconLogout, IconSettings } from '@tabler/icons-react';
 
 const API_BASE = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
     ? `${window.location.protocol}//${window.location.hostname}:8081`
-    : `${window.location.protocol}//${window.location.hostname}/database`;
+    : `${window.location.protocol}//${window.location.hostname}:${window.location.port}/database`;
 
 export function User({ onAuth, user, setUser, setShowSettings }) {
     const [mode, setMode] = useState('login');
