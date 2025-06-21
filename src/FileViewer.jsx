@@ -3,9 +3,13 @@ import {Button, Divider, Text, TextInput, Group, ScrollArea, Paper, Stack, Actio
 import { IconArrowUp, IconFolder, IconFile, IconFolderOpen, IconStar, IconStarFilled } from '@tabler/icons-react';
 
 const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+const isIPAddress = /^\d+\.\d+\.\d+\.\d+$/.test(window.location.hostname);
+
 const API_BASE = isLocalhost 
     ? `${window.location.protocol}//${window.location.hostname}:8082`
-    : `${window.location.protocol}//${window.location.hostname}/fileviewer`;
+    : isIPAddress
+    ? `${window.location.protocol}//${window.location.hostname}:${window.location.port}/fileviewer`
+    : `${window.location.protocol}//${window.location.hostname}:${window.location.port}/fileviewer`;
 
 const CONFIG_FILE_EXTENSIONS = [
     '.json', '.yaml', '.yml', '.xml', '.ini', '.conf', '.config',

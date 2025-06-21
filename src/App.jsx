@@ -11,12 +11,18 @@ import { v4 as uuidv4 } from 'uuid';
 import {User} from "./User.jsx";
 
 const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+const isIPAddress = /^\d+\.\d+\.\d+\.\d+$/.test(window.location.hostname);
+
 const API_BASE = isLocalhost
     ? `${window.location.protocol}//${window.location.hostname}:8082`
+    : isIPAddress
+    ? `${window.location.protocol}//${window.location.hostname}:${window.location.port}/fileviewer`
     : `${window.location.protocol}//${window.location.hostname}/fileviewer`;
 
 const DB_API_BASE = isLocalhost
     ? `${window.location.protocol}//${window.location.hostname}:8081`
+    : isIPAddress
+    ? `${window.location.protocol}//${window.location.hostname}:${window.location.port}/database`
     : `${window.location.protocol}//${window.location.hostname}/database`;
 
 const theme = createTheme({
