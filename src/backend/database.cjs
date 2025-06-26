@@ -39,7 +39,6 @@ const SALT = process.env.SALT || 'default_salt';
 const JWT_SECRET = SALT + '_jwt_secret';
 const DB_PATH = path.join(__dirname, 'data', 'users.db');
 
-// Ensure the data directory exists
 const dataDir = path.join(__dirname, 'data');
 if (!fs.existsSync(dataDir)) {
     fs.mkdirSync(dataDir, { recursive: true });

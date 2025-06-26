@@ -52,7 +52,6 @@ export function FileViewer(props) {
     const [localContainerName, setLocalContainerName] = useState(LOCAL_SERVER.name);
     const pathInputRef = useRef(null);
 
-    // Create a dynamic LOCAL_SERVER that uses the current localDefaultPath and name
     const getLocalServer = () => ({
         ...LOCAL_SERVER,
         name: localContainerName,
@@ -132,7 +131,6 @@ export function FileViewer(props) {
             if (oldServer.isLocal) {
                 setLocalDefaultPath(newServerConfig.defaultPath || '/');
                 setLocalContainerName(newServerConfig.name || 'Local Container');
-                // Save the local settings to localStorage for persistence
                 localStorage.setItem('localDefaultPath', newServerConfig.defaultPath || '/');
                 localStorage.setItem('localContainerName', newServerConfig.name || 'Local Container');
                 return;
@@ -176,7 +174,6 @@ export function FileViewer(props) {
 
     const handleDeleteSSHServer = async (server) => {
         try {
-            // Update the database first, then update local state only on success
             const updatedServers = sshServers.filter(s => s.name !== server.name);
             
             const response = await fetch(`${DB_API_BASE}/user/data`, {
@@ -195,7 +192,6 @@ export function FileViewer(props) {
                 throw new Error(errorData.message || 'Failed to delete server');
             }
 
-            // Only update local state after successful API call
             setSSHServers(updatedServers);
             setMessage('Server deleted successfully');
         } catch (error) {
@@ -277,8 +273,7 @@ export function FileViewer(props) {
         }
         const defaultPath = localDefaultPath;
         setFolder(defaultPath);
-        
-        // Always try to load files, even if path doesn't exist
+
         fetch(`${API_BASE}/files?folder=${encodeURIComponent(defaultPath)}`, {
             headers: localStorage.getItem('token') ? { 'Authorization': `Bearer ${localStorage.getItem('token')}` } : {}
         })
@@ -531,13 +526,11 @@ export function FileViewer(props) {
     }, [folder]);
 
     useEffect(() => {
-        // Load local settings from localStorage on component mount
         const savedPath = localStorage.getItem('localDefaultPath');
         const savedName = localStorage.getItem('localContainerName');
         if (savedPath) {
             setLocalDefaultPath(savedPath);
         } else {
-            // Set default path if none exists
             setLocalDefaultPath('/');
         }
         if (savedName) {
