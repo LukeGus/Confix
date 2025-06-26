@@ -437,12 +437,17 @@ export function User({ onAuth, user, setUser, setShowSettings, userTheme, setUse
                         )}
                         {needsMigration && (
                             <Text align="center" size="sm" color="yellow" weight={500}>
-                                Confix had a large update that requires a docker-compose update. Please update your docker-compose file by using the new file within the Confix GitHub repo.
+                                Confix has received a major update—please use the new docker-compose file available in the Confix GitHub repository.
                             </Text>
                         )}
                         {needsMigration && (
                             <Text align="center" size="sm" color="yellow" weight={500}>
-                                Your data will be reset, please remove the confix-data docker volume then update your compose.
+                                Your data has been reset, so you’ll need to remove the confix-data Docker volume before updating the compose setup.
+                            </Text>
+                        )}
+                        {needsMigration && (
+                            <Text align="center" size="sm" color="yellow" weight={500}>
+                                For support, join the Discord linked within the GitHub repo.
                             </Text>
                         )}
                         {mode === 'signup' && isFirstUser && !needsMigration && (
