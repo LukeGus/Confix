@@ -12,6 +12,12 @@ const API_BASE = isLocalhost
     ? `${window.location.protocol}//${window.location.hostname}:${window.location.port}/database`
     : `${window.location.protocol}//${window.location.hostname}:${window.location.port}/database`;
 
+const SSH_BASE = isLocalhost
+    ? `${window.location.protocol}//${window.location.hostname}:8083`
+    : isIPAddress
+    ? `${window.location.protocol}//${window.location.hostname}:${window.location.port}/ssh`
+    : `${window.location.protocol}//${window.location.hostname}:${window.location.port}/ssh`;
+
 const selectStyles = `
     /* Target all possible Select dropdown containers */
     .mantine-Select-dropdown,
@@ -124,6 +130,8 @@ export function User({ onAuth, user, setUser, setShowSettings, userTheme, setUse
     const [theme, setTheme] = useState('dark');
     const [themeOptions, setThemeOptions] = useState([]);
     const [themeDropdownOpen, setThemeDropdownOpen] = useState(false);
+    const [needsMigration, setNeedsMigration] = useState(false);
+    const [checkingMigration, setCheckingMigration] = useState(true);
 
     useEffect(() => {
         if (mode === 'signup') {
@@ -165,6 +173,16 @@ export function User({ onAuth, user, setUser, setShowSettings, userTheme, setUse
             setAutoLoginTried(true);
         }
     }, [setUser, onAuth, autoLoginTried]);
+
+    useEffect(() => {
+        if (needsMigration && !checkingMigration) {
+            const token = localStorage.getItem('token');
+            if (token) {
+                localStorage.removeItem('token');
+                setUser(null);
+            }
+        }
+    }, [needsMigration, checkingMigration, setUser]);
 
     useEffect(() => {
         if (adminModalOpen && user?.isAdmin) {
@@ -231,7 +249,7 @@ export function User({ onAuth, user, setUser, setShowSettings, userTheme, setUse
                                     item.style.backgroundColor = '#1e40af';
                                     item.style.color = 'white';
                                 });
-                                
+
                                 item.addEventListener('mouseleave', () => {
                                     if (!item.hasAttribute('data-selected')) {
                                         item.style.backgroundColor = 'transparent';
@@ -246,12 +264,12 @@ export function User({ onAuth, user, setUser, setShowSettings, userTheme, setUse
                             node.style.backgroundColor = 'transparent';
                             node.style.borderBottom = '1px solid #36414C';
                             node.style.padding = '6px 12px';
-                            
+
                             node.addEventListener('mouseenter', () => {
                                 node.style.backgroundColor = '#1e40af';
                                 node.style.color = 'white';
                             });
-                            
+
                             node.addEventListener('mouseleave', () => {
                                 if (!node.hasAttribute('data-selected')) {
                                     node.style.backgroundColor = 'transparent';
@@ -295,7 +313,35 @@ export function User({ onAuth, user, setUser, setShowSettings, userTheme, setUse
         };
     }, [themeDropdownOpen]);
 
+    useEffect(() => {
+        const checkMigration = async () => {
+            try {
+                const response = await fetch(`${SSH_BASE}/sshStatus`, {
+                    method: 'GET',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+
+                if (!response.ok) {
+                    setNeedsMigration(true);
+                } else {
+                    setNeedsMigration(false);
+                }
+            } catch (error) {
+                setNeedsMigration(true);
+            } finally {
+                setCheckingMigration(false);
+            }
+        };
+
+        checkMigration();
+    }, []);
+
     const handleAuth = async () => {
+        if (needsMigration) {
+            setError('Please update your docker-compose file before logging in');
+            return;
+        }
+
         setLoading(true);
         setError('');
         const endpoint = mode === 'login' ? 'login' : 'register';
@@ -384,7 +430,22 @@ export function User({ onAuth, user, setUser, setShowSettings, userTheme, setUse
                         <Text align="center" size="lg" weight={700} color="white">
                             {mode === 'login' ? 'Log In' : 'Sign Up'}
                         </Text>
-                        {mode === 'signup' && isFirstUser && (
+                        {checkingMigration && (
+                            <Text align="center" size="sm" color="blue" weight={500}>
+                                Checking system status...
+                            </Text>
+                        )}
+                        {needsMigration && (
+                            <Text align="center" size="sm" color="yellow" weight={500}>
+                                Confix had a large update that requires a docker-compose update. Please update your docker-compose file by using the new file within the Confix GitHub repo.
+                            </Text>
+                        )}
+                        {needsMigration && (
+                            <Text align="center" size="sm" color="yellow" weight={500}>
+                                Your data will be reset, please remove the confix-data docker volume then update your compose.
+                            </Text>
+                        )}
+                        {mode === 'signup' && isFirstUser && !needsMigration && (
                             <Text align="center" size="sm" color="yellow" weight={500}>
                                 You are the first user! You will be made an administrator.
                             </Text>
@@ -394,6 +455,7 @@ export function User({ onAuth, user, setUser, setShowSettings, userTheme, setUse
                             value={username}
                             onChange={e => setUsername(e.target.value)}
                             autoFocus
+                            disabled={needsMigration || checkingMigration}
                             styles={{ input: { background: '#36414C', color: 'white', borderColor: '#4A5568' }, label: { color: 'white' } }}
                         />
                         <TextInput
@@ -401,6 +463,7 @@ export function User({ onAuth, user, setUser, setShowSettings, userTheme, setUse
                             type="password"
                             value={password}
                             onChange={e => setPassword(e.target.value)}
+                            disabled={needsMigration || checkingMigration}
                             styles={{ input: { background: '#36414C', color: 'white', borderColor: '#4A5568' }, label: { color: 'white' } }}
                         />
                         {error && <Text color="red" size="sm">{error}</Text>}
@@ -408,23 +471,26 @@ export function User({ onAuth, user, setUser, setShowSettings, userTheme, setUse
                             <Button
                                 onClick={handleAuth}
                                 loading={loading}
+                                disabled={needsMigration || checkingMigration}
                                 color="blue"
                                 style={{ background: '#36414C', borderColor: '#4A5568', color: 'white' }}
                             >
                                 {mode === 'login' ? 'Log In' : 'Sign Up'}
                             </Button>
                         </Group>
-                        <Group position="apart">
-                            <Button
-                                variant="subtle"
-                                color="gray"
-                                size="xs"
-                                onClick={() => setMode(mode === 'login' ? 'signup' : 'login')}
-                                style={{ color: '#A0AEC0' }}
-                            >
-                                {mode === 'login' ? 'Need an account? Sign Up' : 'Already have an account? Log In'}
-                            </Button>
-                        </Group>
+                        {!needsMigration && !checkingMigration && (
+                            <Group position="apart">
+                                <Button
+                                    variant="subtle"
+                                    color="gray"
+                                    size="xs"
+                                    onClick={() => setMode(mode === 'login' ? 'signup' : 'login')}
+                                    style={{ color: '#A0AEC0' }}
+                                >
+                                    {mode === 'login' ? 'Need an account? Sign Up' : 'Already have an account? Log In'}
+                                </Button>
+                            </Group>
+                        )}
                     </Stack>
                 </Paper>
             </div>
@@ -501,10 +567,10 @@ export function User({ onAuth, user, setUser, setShowSettings, userTheme, setUse
                                 onMouseOut={e => e.currentTarget.style.backgroundColor = '#36414C'}
                             >
                                 {themeOptions.find(opt => opt.value === theme)?.label || 'Dark'}
-                                <div style={{ 
-                                    position: 'absolute', 
-                                    right: 8, 
-                                    top: '50%', 
+                                <div style={{
+                                    position: 'absolute',
+                                    right: 8,
+                                    top: '50%',
                                     transform: 'translateY(-50%)',
                                     transition: 'transform 0.2s',
                                     transform: themeDropdownOpen ? 'translateY(-50%) rotate(180deg)' : 'translateY(-50%) rotate(0deg)'
@@ -606,6 +672,9 @@ export function User({ onAuth, user, setUser, setShowSettings, userTheme, setUse
                         >
                             Log out
                         </Button>
+                        <Text align="center" size="sm" color="gray" weight={500}>
+                            Version: 0.2
+                        </Text>
                     </Stack>
                 </Modal>
 

@@ -35,14 +35,14 @@ Confix is an open-source, forever-free, self-hosted local config editor. Its pur
 - Built-in file viewer for navigating your file system
 - Tab system to navigate between open config files
 - Seamlessly pick up where you left off with features that save your open tabs, track recently accessed files, let you star important config files, and quickly return to your saved directories
+- Remote config editing (SSH)
+- Syntax highlighting dynamic towards your config langauge
 
 # Planned Features
 - Custom themes
-- Better syntax highlighting depending on the config language
 - Guest mode
 - User permissions (only certain users can access specific files or folders, etc.)
 - View config file diff (compare the config file to the previous version)
-- Remote config editing (SSH)
 - Config schema validation
 - Backup configs to compressed file
 
@@ -59,7 +59,7 @@ services:
     ports:
       - "8080:8080"
     volumes:
-      - confix-data:/app/src/backend
+      - confix-data:/app/src/backend/data
       # Add volume mappings for your configuration directories below.
       # Example: - /apps/:/apps  
       # (Left side: path on your server, Right side: path as accessed inside the Confix file browser)

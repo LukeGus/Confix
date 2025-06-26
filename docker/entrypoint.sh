@@ -14,7 +14,6 @@ chmod 755 /app/data
 echo "Starting nginx..."
 nginx
 
-# Start backend services
 echo "Starting backend services..."
 cd /app
 export NODE_ENV=production
