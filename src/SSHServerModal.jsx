@@ -25,7 +25,6 @@ export function SSHServerModal({ opened, onClose, onAddServer, onEditServer, edi
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
 
-    // Reset form when editing server changes
     useEffect(() => {
         if (editingServer) {
             setServerName(editingServer.name || '');
@@ -85,8 +84,7 @@ export function SSHServerModal({ opened, onClose, onAddServer, onEditServer, edi
             } else {
                 await onAddServer(serverConfig);
             }
-            
-            // Reset form
+
             setServerName('');
             setServerIP('');
             setServerPort('22');

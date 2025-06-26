@@ -46,45 +46,18 @@ export function FileViewer(props) {
 
     const handleBack = async () => {
         const defaultPath = currentServerState?.defaultPath || LOCAL_SERVER.defaultPath;
-        // Normalize both paths for comparison
         const normalize = p => (p || '').replace(/\\/g, '/').replace(/\/+/g, '/').replace(/\/$/, '').toLowerCase();
         const normalizedFolder = normalize(folder);
-        // Determine if at root
         let atRoot = false;
         if (currentServerState?.isLocal && navigator.platform.includes('Win')) {
-            // Windows: root is like 'C:/'
             const driveRoot = (folder.split('/')[0] || 'C') + '/';
             atRoot = normalize(folder) === normalize(driveRoot);
         } else {
-            // Linux/SSH: root is '/'
             atRoot = normalizedFolder === '' || normalizedFolder === '/';
         }
-        console.log('Back button:', { folder, defaultPath, normalizedFolder, atRoot });
-        // If at root, go back to server list
         if (atRoot) {
-            setIsSSHMode(false);
-            setCurrentServerState(null);
-            setFolder('/');
-            if (setCurrentServer) {
-                setCurrentServer(null);
-            }
-            // Close all tabs if setTabState is provided
-            if (setTabState) {
-                setTabState({ tabs: [], activeTab: 'home' });
-            }
-            // Disconnect from SSH if needed
-            if (!currentServerState?.isLocal) {
-                await fetch(`${SSH_API_BASE}/sshDisconnect`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        ...(localStorage.getItem('token') ? { 'Authorization': `Bearer ${localStorage.getItem('token')}` } : {})
-                    }
-                });
-            }
             return;
         }
-        // Otherwise, go up one directory
         if (folder && folder !== '/') {
         const normalizedPath = folder.replace(/\\/g, '/');
         const parts = normalizedPath.split('/').filter(Boolean);
@@ -92,7 +65,6 @@ export function FileViewer(props) {
             parts.pop();
                 let newPath;
                 if (currentServerState?.isLocal && navigator.platform.includes('Win')) {
-                    // For Windows local, ensure drive letter format
                     let drive = parts[0] || 'C';
                     if (drive.endsWith(':')) drive = drive.slice(0, -1);
                     newPath = parts.length > 0 ? drive + ':/' : (folder.split('/')[0] + '/');
@@ -106,7 +78,6 @@ export function FileViewer(props) {
 
     const handleAddSSHServer = async (serverConfig) => {
         try {
-            // Test the connection first
             const connectResponse = await fetch(`${SSH_API_BASE}/sshConnect`, {
                 method: 'POST',
                 headers: {
@@ -127,7 +98,6 @@ export function FileViewer(props) {
                 throw new Error(errorData.message || 'Failed to connect to server');
             }
 
-            // Disconnect after testing
             await fetch(`${SSH_API_BASE}/sshDisconnect`, {
                 method: 'POST',
                 headers: {
@@ -136,7 +106,6 @@ export function FileViewer(props) {
                 }
             });
 
-            // Add to servers list
             setSSHServers(prev => [...prev, serverConfig]);
         } catch (error) {
             throw error;
@@ -145,7 +114,6 @@ export function FileViewer(props) {
 
     const handleEditSSHServer = async (oldServer, newServerConfig) => {
         try {
-            // Test the connection first
             const connectResponse = await fetch(`${SSH_API_BASE}/sshConnect`, {
                 method: 'POST',
                 headers: {
@@ -166,7 +134,6 @@ export function FileViewer(props) {
                 throw new Error(errorData.message || 'Failed to connect to server');
             }
 
-            // Disconnect after testing
             await fetch(`${SSH_API_BASE}/sshDisconnect`, {
                 method: 'POST',
                 headers: {
@@ -175,7 +142,6 @@ export function FileViewer(props) {
                 }
             });
 
-            // Update server in list
             setSSHServers(prev => prev.map(server => 
                 server.name === oldServer.name ? newServerConfig : server
             ));
@@ -193,12 +159,10 @@ export function FileViewer(props) {
             setIsSSHMode(true);
             setFolder(server.defaultPath || '/');
 
-            // Use the passed onSSHConnect function if available, otherwise use local implementation
             let connected = false;
             if (onSSHConnect) {
                 connected = await onSSHConnect(server);
             } else {
-                // Local implementation
                 const connectResponse = await fetch(`${SSH_API_BASE}/sshConnect`, {
                     method: 'POST',
                     headers: {
@@ -235,13 +199,11 @@ export function FileViewer(props) {
                 return;
             }
 
-            // Only set current server after successful connection
             if (setCurrentServer) {
                 setCurrentServer(server);
             }
             setConnectingToServer(null);
-            
-            // Load files from default path
+
             await loadSSHFiles(server.defaultPath || '/');
             setIsLoading(false);
         } catch (error) {
@@ -294,7 +256,6 @@ export function FileViewer(props) {
 
             const data = await response.json();
             if (data.status === 'success') {
-                // Filter out . and .. directories
                 const filteredFiles = data.files.filter(file => file.name !== '.' && file.name !== '..');
                 setFiles(filteredFiles);
                 setMessage('');
@@ -374,7 +335,6 @@ export function FileViewer(props) {
             const {content, folder, filename} = event.detail;
             
             if (isSSHMode && currentServerState) {
-                // Save to SSH server
                 try {
                     const filePath = `${folder}/${filename}`.replace(/\\/g, '/').replace(/\/+/g, '/');
                     const response = await fetch(`${SSH_API_BASE}/writeFile`, {
@@ -399,7 +359,6 @@ export function FileViewer(props) {
                     setMessage('Error saving file: ' + error.message);
                 }
             } else {
-                // Save to local filesystem
             fetch(`${API_BASE}/file?folder=${encodeURIComponent(folder)}&name=${encodeURIComponent(filename)}`, {
                 method: 'POST',
                 headers: {
@@ -427,22 +386,18 @@ export function FileViewer(props) {
     const handleFileClick = async (name, type) => {
         if (type === 'file') {
             if (isSSHMode && currentServerState) {
-                // Handle SSH file selection
                 const filePath = `${folder}/${name}`.replace(/\\/g, '/').replace(/\/+/g, '/');
                 onFileSelect(name, folder, currentServerState, filePath);
             } else {
-                // Handle local file selection
             onFileSelect(name, folder);
             }
         } else {
-            // Directory navigation
             const newPath = folder.endsWith('/') ? folder + name : folder + '/' + name;
             setFolder(newPath);
         }
         setMessage('');
     };
 
-    // Function to auto-connect to SSH server when loading files from recent/starred/shortcuts
     const connectToSSHServer = async (server) => {
         try {
             setIsLoading(true);
@@ -450,12 +405,10 @@ export function FileViewer(props) {
             setCurrentServerState(server);
             setIsSSHMode(true);
 
-            // Use the passed onSSHConnect function if available, otherwise use local implementation
             let connected = false;
             if (onSSHConnect) {
                 connected = await onSSHConnect(server);
             } else {
-                // Local implementation
                 const connectResponse = await fetch(`${SSH_API_BASE}/sshConnect`, {
                     method: 'POST',
                     headers: {
@@ -521,7 +474,6 @@ export function FileViewer(props) {
         }
     }, [folder]);
 
-    // Show server list if not in SSH mode and no folder is selected
     if (!isSSHMode && (!folder || folder === '/')) {
         return (
             <Stack h="100%" spacing="xs" style={{ padding: '2px' }}>
@@ -590,7 +542,6 @@ export function FileViewer(props) {
                                 {/* SSH Servers */}
                                 {sshServers
                                     .sort((a, b) => {
-                                        // Sort by starred status first, then alphabetically
                                         const aStarred = starredFiles.some(f => f.path === `ssh://${a.name}`);
                                         const bStarred = starredFiles.some(f => f.path === `ssh://${b.name}`);
                                         if (aStarred && !bStarred) return -1;
@@ -912,24 +863,65 @@ export function FileViewer(props) {
                     {folder && (
                         <>
                             <Divider my="xs" color="#4A5568" />
-                            <Paper
-                                p="xs"
-                                onClick={handleBack}
-                                style={{
-                                    cursor: 'pointer',
-                                    backgroundColor: '#36414C',
-                                    border: '1px solid #4A5568',
-                                    userSelect: 'none',
-                                    transition: 'background 0.2s',
-                                }}
-                                onMouseOver={e => e.currentTarget.style.backgroundColor = '#4A5568'}
-                                onMouseOut={e => e.currentTarget.style.backgroundColor = '#36414C'}
-                            >
-                                <Group spacing="xs">
-                                    <ArrowUp size={16} color="#A0AEC0" style={{ userSelect: 'none' }} />
-                                    <Text size="sm" color="white" style={{ userSelect: 'none' }}>Go Back</Text>
-                                </Group>
-                            </Paper>
+                            <Group spacing="xs">
+                                <Paper
+                                    p="xs"
+                                    onClick={handleBack}
+                                    style={{
+                                        cursor: 'pointer',
+                                        backgroundColor: '#36414C',
+                                        border: '1px solid #4A5568',
+                                        userSelect: 'none',
+                                        transition: 'background 0.2s',
+                                        flex: 1,
+                                    }}
+                                    onMouseOver={e => e.currentTarget.style.backgroundColor = '#4A5568'}
+                                    onMouseOut={e => e.currentTarget.style.backgroundColor = '#36414C'}
+                                >
+                                    <Group spacing="xs">
+                                        <ArrowUp size={16} color="#A0AEC0" style={{ userSelect: 'none' }} />
+                                        <Text size="sm" color="white" style={{ userSelect: 'none' }}>Back</Text>
+                                    </Group>
+                                </Paper>
+                                <Paper
+                                    p="xs"
+                                    onClick={() => {
+                                        setIsSSHMode(false);
+                                        setCurrentServerState(null);
+                                        setFolder('/');
+                                        if (setCurrentServer) {
+                                            setCurrentServer(null);
+                                        }
+                                        if (setTabState) {
+                                            setTabState({ tabs: [], activeTab: 'home' });
+                                        }
+                                        if (!currentServerState?.isLocal) {
+                                            fetch(`${SSH_API_BASE}/sshDisconnect`, {
+                                                method: 'POST',
+                                                headers: {
+                                                    'Content-Type': 'application/json',
+                                                    ...(localStorage.getItem('token') ? { 'Authorization': `Bearer ${localStorage.getItem('token')}` } : {})
+                                                }
+                                            });
+                                        }
+                                    }}
+                                    style={{
+                                        cursor: 'pointer',
+                                        backgroundColor: '#36414C',
+                                        border: '1px solid #4A5568',
+                                        userSelect: 'none',
+                                        transition: 'background 0.2s',
+                                        flex: 1,
+                                    }}
+                                    onMouseOver={e => e.currentTarget.style.backgroundColor = '#4A5568'}
+                                    onMouseOut={e => e.currentTarget.style.backgroundColor = '#36414C'}
+                                >
+                                    <Group spacing="xs">
+                                        <Server size={16} color="#A0AEC0" style={{ userSelect: 'none' }} />
+                                        <Text size="sm" color="white" style={{ userSelect: 'none' }}>Servers</Text>
+                                    </Group>
+                                </Paper>
+                            </Group>
                         </>
                     )}
                 </Stack>

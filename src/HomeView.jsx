@@ -24,7 +24,6 @@ import {
 } from 'lucide-react';
 import { StarHoverableIcon } from './FileViewer.jsx';
 
-// Helper to compare two server objects (including local)
 function compareServers(a, b) {
     if (!a && !b) return true;
     if (!a || !b) return false;
@@ -70,11 +69,10 @@ export function HomeView({ onFileSelect, recentFiles, starredFiles, setStarredFi
 
     const handleFileClick = async (file) => {
         if (file.server && !file.server.isLocal) {
-            // SSH file - only connect if not already connected to this server
             if (onSSHConnect && (!currentServer || !compareServers(currentServer, file.server))) {
                 const connected = await onSSHConnect(file.server);
                 if (!connected) {
-                    return; // Don't proceed if connection failed
+                    return;
                 }
             }
             const pathParts = file.path.split('/').filter(Boolean);
@@ -82,21 +80,16 @@ export function HomeView({ onFileSelect, recentFiles, starredFiles, setStarredFi
             const folderPath = '/' + pathParts.join('/');
             onFileSelect(fileName, folderPath, file.server, file.path);
         } else {
-            // Local file - handle Windows and Unix paths properly
             let parentFolder;
             if (navigator.platform.includes('Win') && file.path.includes(':')) {
-                // Windows path with drive letter
                 const lastSlashIndex = file.path.lastIndexOf('/');
                 if (lastSlashIndex === -1) {
-                    // File is in root of drive (e.g., C:RHDSetup.log)
                     const driveLetter = file.path.substring(0, file.path.indexOf(':') + 1);
                     parentFolder = driveLetter + '/';
                 } else {
-                    // File is in a folder
                     parentFolder = file.path.substring(0, lastSlashIndex + 1);
                 }
             } else {
-                // Unix path
                 const lastSlashIndex = file.path.lastIndexOf('/');
                 parentFolder = lastSlashIndex === -1 ? '/' : file.path.substring(0, lastSlashIndex + 1);
             }

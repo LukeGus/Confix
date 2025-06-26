@@ -7,7 +7,6 @@ const SSHClient = require("ssh2").Client;
 const app = express();
 const PORT = 8083;
 
-// Global connection state
 let sshConnection = null;
 let isConnected = false;
 
@@ -34,21 +33,18 @@ const logger = {
     debug: (...args) => console.debug(`💻 | 🔍 [${getReadableTimestamp()}] DEBUG:`, ...args)
 };
 
-// Helper function to close existing SSH connection
 const closeSSHConnection = () => {
     if (sshConnection && isConnected) {
         try {
             sshConnection.end();
             sshConnection = null;
             isConnected = false;
-            logger.info('SSH connection closed');
         } catch (err) {
             logger.error('Error closing SSH connection:', err.message);
         }
     }
 };
 
-// Helper function to execute SSH command
 const executeSSHCommand = (command) => {
     return new Promise((resolve, reject) => {
         if (!sshConnection || !isConnected) {
@@ -83,7 +79,6 @@ const executeSSHCommand = (command) => {
     });
 };
 
-// Connect to SSH server
 app.post('/sshConnect', async (req, res) => {
     try {
         const hostConfig = req.body;
@@ -95,10 +90,8 @@ app.post('/sshConnect', async (req, res) => {
             });
         }
 
-        // Close existing connection if any
         closeSSHConnection();
 
-        // Create new SSH connection
         sshConnection = new SSHClient();
         
         const connectionConfig = {
@@ -110,7 +103,6 @@ app.post('/sshConnect', async (req, res) => {
             keepaliveCountMax: 3
         };
 
-        // Add authentication method
         if (hostConfig.sshKey) {
             connectionConfig.privateKey = hostConfig.sshKey;
         } else if (hostConfig.password) {
@@ -122,11 +114,8 @@ app.post('/sshConnect', async (req, res) => {
             });
         }
 
-        logger.info(`Attempting SSH connection to ${hostConfig.ip}:${connectionConfig.port} as ${hostConfig.user}`);
-
         sshConnection.on('ready', () => {
             isConnected = true;
-            logger.info('SSH connection established successfully');
         });
 
         sshConnection.on('error', (err) => {
@@ -135,19 +124,15 @@ app.post('/sshConnect', async (req, res) => {
         });
 
         sshConnection.on('close', () => {
-            logger.info('SSH connection closed');
             isConnected = false;
         });
 
         sshConnection.on('end', () => {
-            logger.info('SSH connection ended');
             isConnected = false;
         });
 
-        // Connect to the server
         sshConnection.connect(connectionConfig);
 
-        // Wait for connection to be ready
         await new Promise((resolve, reject) => {
             const timeout = setTimeout(() => {
                 reject(new Error('SSH connection timeout'));
@@ -180,7 +165,6 @@ app.post('/sshConnect', async (req, res) => {
     }
 });
 
-// Get list of files and folders from a specified path
 app.get('/listFiles', async (req, res) => {
     try {
         const { path = '/' } = req.query;
@@ -192,17 +176,12 @@ app.get('/listFiles', async (req, res) => {
             });
         }
 
-        logger.info(`Listing files in path: ${path}`);
-
-        // Use ls command to get file listing with detailed information
         const lsCommand = `ls -la "${path}"`;
         const result = await executeSSHCommand(lsCommand);
 
-        // Parse the ls output to extract file information
         const lines = result.split('\n').filter(line => line.trim());
         const files = [];
 
-        // Skip the first line (total) and parse each file entry
         for (let i = 1; i < lines.length; i++) {
             const line = lines[i];
             const parts = line.split(/\s+/);
@@ -218,7 +197,6 @@ app.get('/listFiles', async (req, res) => {
                 const timeOrYear = parts[7];
                 const name = parts.slice(8).join(' ');
 
-                // Determine if it's a directory
                 const isDirectory = permissions.startsWith('d');
                 const isLink = permissions.startsWith('l');
 
@@ -253,7 +231,6 @@ app.get('/listFiles', async (req, res) => {
     }
 });
 
-// Disconnect from SSH
 app.post('/sshDisconnect', async (req, res) => {
     try {
         closeSSHConnection();
@@ -272,7 +249,6 @@ app.post('/sshDisconnect', async (req, res) => {
     }
 });
 
-// Get connection status
 app.get('/sshStatus', async (req, res) => {
     return res.status(200).json({
         status: 'success',
@@ -281,7 +257,6 @@ app.get('/sshStatus', async (req, res) => {
     });
 });
 
-// Read file content from SSH server
 app.get('/readFile', async (req, res) => {
     try {
         const { path: filePath } = req.query;
@@ -300,9 +275,6 @@ app.get('/readFile', async (req, res) => {
             });
         }
 
-        logger.info(`Reading file: ${filePath}`);
-
-        // Use cat command to read file content
         const catCommand = `cat "${filePath}"`;
         const result = await executeSSHCommand(catCommand);
 
@@ -322,7 +294,6 @@ app.get('/readFile', async (req, res) => {
     }
 });
 
-// Write file content to SSH server
 app.post('/writeFile', async (req, res) => {
     try {
         const { path: filePath, content } = req.body;
@@ -348,16 +319,11 @@ app.post('/writeFile', async (req, res) => {
             });
         }
 
-        logger.info(`Writing file: ${filePath}`);
-
-        // Create a temporary file with the content and then move it
         const tempFile = `/tmp/temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-        
-        // Write content to temporary file using echo
+
         const echoCommand = `echo '${content.replace(/'/g, "'\"'\"'")}' > "${tempFile}"`;
         await executeSSHCommand(echoCommand);
 
-        // Move temporary file to target location
         const mvCommand = `mv "${tempFile}" "${filePath}"`;
         await executeSSHCommand(mvCommand);
 
@@ -377,15 +343,12 @@ app.post('/writeFile', async (req, res) => {
     }
 });
 
-// Cleanup on server shutdown
 process.on('SIGINT', () => {
-    logger.info('Shutting down SSH server...');
     closeSSHConnection();
     process.exit(0);
 });
 
 process.on('SIGTERM', () => {
-    logger.info('Shutting down SSH server...');
     closeSSHConnection();
     process.exit(0);
 });

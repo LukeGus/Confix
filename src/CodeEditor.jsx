@@ -168,10 +168,9 @@ export function CodeEditor({isNavbarOpen, content, fileName, onContentChange, th
         }));
     }, [isNavbarOpen]);
 
-    // Get the theme function from @uiw/codemirror-themes-all
     let cmTheme;
     if ((theme || '').toLowerCase() === 'dark') {
-        cmTheme = 'dark'; // Use built-in CodeMirror dark theme
+        cmTheme = 'dark';
     } else {
         let effectiveTheme = theme || 'dark';
         let themeKey = Object.keys(themesAll).find(key => key.toLowerCase() === effectiveTheme.toLowerCase() + 'init');
@@ -182,7 +181,6 @@ export function CodeEditor({isNavbarOpen, content, fileName, onContentChange, th
             cmTheme = undefined;
         }
         if (!cmTheme) {
-            // fallback to built-in dark
             cmTheme = 'dark';
         }
     }

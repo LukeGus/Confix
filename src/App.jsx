@@ -97,7 +97,6 @@ function App() {
         };
 
         if (server && !server.isLocal) {
-            // Load content from SSH server
             fetch(`${SSH_API_BASE}/readFile?path=${encodeURIComponent(normalizedPath)}`, {
                 headers: token ? { 'Authorization': `Bearer ${token}` } : (localStorage.getItem('token') ? { 'Authorization': `Bearer ${localStorage.getItem('token')}` } : {})
             })
@@ -120,11 +119,8 @@ function App() {
                     }
                 })
                 .catch(error => {
-                    console.error('Error loading SSH file:', error);
                 });
         } else {
-            // Load content from local filesystem
-            console.log('Loading local file:', { file, folderPath, normalizedPath });
             fetch(`${API_BASE}/file?folder=${encodeURIComponent(folderPath)}&name=${encodeURIComponent(file)}`, {
                 headers: token ? { 'Authorization': `Bearer ${token}` } : (localStorage.getItem('token') ? { 'Authorization': `Bearer ${localStorage.getItem('token')}` } : {})
             })
@@ -143,8 +139,6 @@ function App() {
                     }));
                 })
                 .catch(error => {
-                    console.error('Error loading local file:', error);
-                    console.error('Failed request details:', { file, folderPath, normalizedPath });
                 });
         }
 
@@ -152,10 +146,8 @@ function App() {
     };
 
     const handleFileSelect = (file, folderPath, server = null, filePath = null) => {
-        // Determine the effective server based on context
         let effectiveServer = server;
         if (!effectiveServer) {
-            // If no server specified, use current server context
             effectiveServer = currentServer || LOCAL_SERVER;
         }
         
@@ -260,7 +252,6 @@ function App() {
 
     useEffect(() => {
         if (!isInitialLoad && !isLoading && pendingTabs.length === 0 && user && currentServer) {
-            // If SSH, reconnect
             if (!currentServer.isLocal) {
                 handleSSHConnect(currentServer).then(connected => {
                     if (connected) {
@@ -366,12 +357,10 @@ function App() {
         }
         const firstTab = tabsToRestore[0];
         let server = null;
-        
-        // Check if it's a local server first
+
         if (firstTab.serverName === LOCAL_SERVER.name && firstTab.serverIp === LOCAL_SERVER.ip) {
             server = LOCAL_SERVER;
         } else if (firstTab.serverName && firstTab.serverIp && firstTab.serverUser) {
-            // SSH server
             server = {
                 name: firstTab.serverName,
                 ip: firstTab.serverIp,
@@ -400,7 +389,6 @@ function App() {
             const folderPath = '/' + pathParts.join('/');
             try {
                 if (server && !server.isLocal) {
-                    // SSH tab
                     const fileCheckResponse = await fetch(`${SSH_API_BASE}/listFiles?path=${encodeURIComponent(folderPath)}`, {
                         headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
                     });
@@ -429,7 +417,6 @@ function App() {
                         }
                     }
                 } else {
-                    // Local tab
                     const fileCheckResponse = await fetch(`${API_BASE}/files?folder=${encodeURIComponent(folderPath)}`, {
                         headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
                     });
@@ -455,7 +442,6 @@ function App() {
                     }
                 }
             } catch (error) {
-                console.error('Error restoring tab:', error);
             }
         }
         if (newTabs.length > 0) {
@@ -537,7 +523,6 @@ function App() {
                 throw new Error(`Failed to save user data: ${errorData.error || response.statusText}`);
             }
         } catch (error) {
-            console.error('Error saving user data:', error);
         }
     };
 
@@ -556,12 +541,10 @@ function App() {
         try {
             setIsSSHConnecting(true);
             setConnectingToServer(server);
-            // Check if already connected to the same server
             if (currentServer && compareServers(currentServer, server)) {
-                return true; // Already connected
+                return true;
             }
 
-            // Validate server configuration
             if (!server.ip || !server.user) {
                 throw new Error('Missing required host configuration (ip, user)');
             }
@@ -592,7 +575,6 @@ function App() {
 
             return true;
         } catch (error) {
-            console.error('Error connecting to SSH server:', error);
             return false;
         } finally {
             setIsSSHConnecting(false);
@@ -600,7 +582,6 @@ function App() {
         }
     };
 
-    // Helper to compare two server objects (including local)
     function compareServers(a, b) {
         if (!a && !b) return true;
         if (!a || !b) return false;

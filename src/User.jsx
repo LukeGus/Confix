@@ -12,7 +12,6 @@ const API_BASE = isLocalhost
     ? `${window.location.protocol}//${window.location.hostname}:${window.location.port}/database`
     : `${window.location.protocol}//${window.location.hostname}:${window.location.port}/database`;
 
-// Add CSS to override Mantine Select styles
 const selectStyles = `
     /* Target all possible Select dropdown containers */
     .mantine-Select-dropdown,
@@ -182,16 +181,13 @@ export function User({ onAuth, user, setUser, setShowSettings, userTheme, setUse
     }, [adminModalOpen, user]);
 
     useEffect(() => {
-        // Populate theme options from @uiw/codemirror-themes-all
         let themeNames = Object.keys(themesAll)
             .filter(key => key.endsWith('Init'))
             .map(key => key.replace('Init', ''));
-        // Ensure 'dark' and 'light' are present and at the top
         themeNames = [
             ...['dark', 'light'].filter(n => !themeNames.map(t => t.toLowerCase()).includes(n)),
             ...themeNames.filter(n => n.toLowerCase() !== 'dark' && n.toLowerCase() !== 'light')
         ];
-        // Capitalize and space theme names
         const formatThemeName = (name) => name
             .replace(/([a-z])([A-Z])/g, '$1 $2')
             .replace(/([A-Z])([A-Z][a-z])/g, '$1 $2')
@@ -201,7 +197,6 @@ export function User({ onAuth, user, setUser, setShowSettings, userTheme, setUse
             label: formatThemeName(name)
         }));
         setThemeOptions(options);
-        // Default to dark if not set
         if (!theme || !themeNames.map(n => n.toLowerCase()).includes(theme)) {
             setTheme('dark');
         }
@@ -212,32 +207,26 @@ export function User({ onAuth, user, setUser, setShowSettings, userTheme, setUse
         else setTheme('dark');
     }, [userTheme]);
 
-    // Inject CSS styles for Select dropdown
     useEffect(() => {
-        // Check if styles already exist
         if (!document.getElementById('theme-select-styles')) {
             const styleElement = document.createElement('style');
             styleElement.id = 'theme-select-styles';
             styleElement.textContent = selectStyles;
             document.head.appendChild(styleElement);
         }
-        
-        // Create a MutationObserver to watch for dropdown elements being added to the DOM
+
         const observer = new MutationObserver((mutations) => {
             mutations.forEach((mutation) => {
                 mutation.addedNodes.forEach((node) => {
                     if (node.nodeType === Node.ELEMENT_NODE) {
-                        // Check if this is a Select dropdown
                         const selectItems = node.querySelectorAll && node.querySelectorAll('.mantine-Select-item, [data-mantine-select-item], div[role="option"]');
                         if (selectItems.length > 0) {
-                            // Apply styles to each item
                             selectItems.forEach((item) => {
                                 item.style.color = 'white';
                                 item.style.backgroundColor = 'transparent';
                                 item.style.borderBottom = '1px solid #36414C';
                                 item.style.padding = '6px 12px';
-                                
-                                // Add hover event listeners
+
                                 item.addEventListener('mouseenter', () => {
                                     item.style.backgroundColor = '#1e40af';
                                     item.style.color = 'white';
@@ -251,8 +240,7 @@ export function User({ onAuth, user, setUser, setShowSettings, userTheme, setUse
                                 });
                             });
                         }
-                        
-                        // Also check if the node itself is a Select item
+
                         if (node.classList && (node.classList.contains('mantine-Select-item') || node.hasAttribute('data-mantine-select-item') || node.getAttribute('role') === 'option')) {
                             node.style.color = 'white';
                             node.style.backgroundColor = 'transparent';
@@ -275,14 +263,12 @@ export function User({ onAuth, user, setUser, setShowSettings, userTheme, setUse
                 });
             });
         });
-        
-        // Start observing
+
         observer.observe(document.body, {
             childList: true,
             subtree: true
         });
-        
-        // Cleanup function
+
         return () => {
             observer.disconnect();
             const existingStyle = document.getElementById('theme-select-styles');
@@ -292,10 +278,8 @@ export function User({ onAuth, user, setUser, setShowSettings, userTheme, setUse
         };
     }, []);
 
-    // Handle clicking outside the theme dropdown
     useEffect(() => {
         const handleClickOutside = (event) => {
-            // Check if the click is outside the theme dropdown
             const themeDropdown = event.target.closest('[data-theme-dropdown]');
             if (!themeDropdown && themeDropdownOpen) {
                 setThemeDropdownOpen(false);
@@ -368,7 +352,6 @@ export function User({ onAuth, user, setUser, setShowSettings, userTheme, setUse
         const newTheme = value || 'dark';
         setTheme(newTheme);
         setUserTheme && setUserTheme(newTheme);
-        // Save to backend
         try {
             await fetch(`${API_BASE}/user/data`, {
                 method: 'POST',

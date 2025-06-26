@@ -361,7 +361,6 @@ app.get('/user/data', authMiddleware, (req, res) => {
 
         const sshServers = db.prepare('SELECT server_name as name, server_ip as ip, server_port as port, username as user, password, ssh_key as sshKey, default_path as defaultPath, created_at as createdAt FROM user_ssh_servers WHERE user_id = ?').all(userId);
 
-        // Decrypt sensitive data
         const decryptedServers = sshServers.map(server => ({
             ...server,
             password: server.password ? decrypt(server.password) : null,
@@ -386,7 +385,6 @@ app.get('/user/data', authMiddleware, (req, res) => {
     }
 });
 
-// Migration for existing DBs: add theme column if not exists
 try {
     db.prepare('ALTER TABLE users ADD COLUMN theme TEXT DEFAULT "vscode"').run();
 } catch (e) {
