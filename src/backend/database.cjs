@@ -46,7 +46,8 @@ db.prepare(`CREATE TABLE IF NOT EXISTS users (
     username TEXT UNIQUE NOT NULL,
     password TEXT NOT NULL,
     created_at TEXT NOT NULL,
-    is_admin BOOLEAN DEFAULT 0
+    is_admin BOOLEAN DEFAULT 0,
+    theme TEXT DEFAULT 'vscode'
 )`).run();
 
 db.prepare(`CREATE TABLE IF NOT EXISTS settings (
@@ -65,6 +66,11 @@ db.prepare(`CREATE TABLE IF NOT EXISTS user_recent_files (
     file_path TEXT NOT NULL,
     file_name TEXT NOT NULL,
     last_opened TEXT NOT NULL,
+    server_name TEXT,
+    server_ip TEXT,
+    server_port INTEGER,
+    server_user TEXT,
+    server_default_path TEXT,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 )`).run();
 
@@ -74,6 +80,11 @@ db.prepare(`CREATE TABLE IF NOT EXISTS user_starred_files (
     file_path TEXT NOT NULL,
     file_name TEXT NOT NULL,
     last_opened TEXT NOT NULL,
+    server_name TEXT,
+    server_ip TEXT,
+    server_port INTEGER,
+    server_user TEXT,
+    server_default_path TEXT,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 )`).run();
 
@@ -82,6 +93,11 @@ db.prepare(`CREATE TABLE IF NOT EXISTS user_folder_shortcuts (
     user_id INTEGER NOT NULL,
     folder_path TEXT NOT NULL,
     folder_name TEXT NOT NULL,
+    server_name TEXT,
+    server_ip TEXT,
+    server_port INTEGER,
+    server_user TEXT,
+    server_default_path TEXT,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 )`).run();
 
@@ -94,6 +110,10 @@ db.prepare(`CREATE TABLE IF NOT EXISTS user_open_tabs (
     content TEXT,
     saved_content TEXT,
     is_dirty BOOLEAN DEFAULT 0,
+    server_name TEXT,
+    server_ip TEXT,
+    server_port INTEGER,
+    server_user TEXT,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 )`).run();
 
@@ -101,6 +121,20 @@ db.prepare(`CREATE TABLE IF NOT EXISTS user_current_path (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER NOT NULL UNIQUE,
     current_path TEXT NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+)`).run();
+
+db.prepare(`CREATE TABLE IF NOT EXISTS user_ssh_servers (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    server_name TEXT NOT NULL,
+    server_ip TEXT NOT NULL,
+    server_port INTEGER DEFAULT 22,
+    username TEXT NOT NULL,
+    password TEXT,
+    ssh_key TEXT,
+    default_path TEXT DEFAULT '/',
+    created_at TEXT NOT NULL,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 )`).run();
 
@@ -248,7 +282,7 @@ app.use('/file', authMiddleware);
 app.use('/files', authMiddleware);
 
 app.post('/user/data', authMiddleware, (req, res) => {
-    const { recentFiles, starredFiles, folderShortcuts, openTabs, currentPath } = req.body;
+    const { recentFiles, starredFiles, folderShortcuts, openTabs, currentPath, sshServers, theme } = req.body;
     const userId = req.user.id;
 
     try {
@@ -256,38 +290,50 @@ app.post('/user/data', authMiddleware, (req, res) => {
 
         if (recentFiles) {
             db.prepare('DELETE FROM user_recent_files WHERE user_id = ?').run(userId);
-            const stmt = db.prepare('INSERT INTO user_recent_files (user_id, file_path, file_name, last_opened) VALUES (?, ?, ?, ?)');
+            const stmt = db.prepare('INSERT INTO user_recent_files (user_id, file_path, file_name, last_opened, server_name, server_ip, server_port, server_user, server_default_path) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)');
             recentFiles.forEach(file => {
-                stmt.run(userId, file.path, file.name, file.lastOpened);
+                stmt.run(userId, file.path, file.name, file.lastOpened, file.serverName, file.serverIp, file.serverPort, file.serverUser, file.serverDefaultPath);
             });
         }
 
         if (starredFiles) {
             db.prepare('DELETE FROM user_starred_files WHERE user_id = ?').run(userId);
-            const stmt = db.prepare('INSERT INTO user_starred_files (user_id, file_path, file_name, last_opened) VALUES (?, ?, ?, ?)');
+            const stmt = db.prepare('INSERT INTO user_starred_files (user_id, file_path, file_name, last_opened, server_name, server_ip, server_port, server_user, server_default_path) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)');
             starredFiles.forEach(file => {
-                stmt.run(userId, file.path, file.name, file.lastOpened);
+                stmt.run(userId, file.path, file.name, file.lastOpened, file.serverName, file.serverIp, file.serverPort, file.serverUser, file.serverDefaultPath);
             });
         }
 
         if (folderShortcuts) {
             db.prepare('DELETE FROM user_folder_shortcuts WHERE user_id = ?').run(userId);
-            const stmt = db.prepare('INSERT INTO user_folder_shortcuts (user_id, folder_path, folder_name) VALUES (?, ?, ?)');
+            const stmt = db.prepare('INSERT INTO user_folder_shortcuts (user_id, folder_path, folder_name, server_name, server_ip, server_port, server_user, server_default_path) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
             folderShortcuts.forEach(folder => {
-                stmt.run(userId, folder.path, folder.name);
+                stmt.run(userId, folder.path, folder.name, folder.serverName, folder.serverIp, folder.serverPort, folder.serverUser, folder.serverDefaultPath);
             });
         }
 
         if (openTabs) {
             db.prepare('DELETE FROM user_open_tabs WHERE user_id = ?').run(userId);
-            const stmt = db.prepare('INSERT INTO user_open_tabs (user_id, tab_id, file_name, file_path, content, saved_content, is_dirty) VALUES (?, ?, ?, ?, ?, ?, ?)');
+            const stmt = db.prepare('INSERT INTO user_open_tabs (user_id, tab_id, file_name, file_path, content, saved_content, is_dirty, server_name, server_ip, server_port, server_user) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
             openTabs.forEach(tab => {
-                stmt.run(userId, tab.id, tab.name, tab.path, tab.content || '', tab.savedContent || '', tab.isDirty ? 1 : 0);
+                stmt.run(userId, tab.id, tab.name, tab.path, tab.content || '', tab.savedContent || '', tab.isDirty ? 1 : 0, tab.serverName, tab.serverIp, tab.serverPort, tab.serverUser);
             });
         }
 
         if (currentPath) {
             db.prepare('INSERT OR REPLACE INTO user_current_path (user_id, current_path) VALUES (?, ?)').run(userId, currentPath);
+        }
+
+        if (sshServers) {
+            db.prepare('DELETE FROM user_ssh_servers WHERE user_id = ?').run(userId);
+            const stmt = db.prepare('INSERT INTO user_ssh_servers (user_id, server_name, server_ip, server_port, username, password, ssh_key, default_path, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)');
+            sshServers.forEach(server => {
+                stmt.run(userId, server.name, server.ip, server.port || 22, server.user, server.password ? encrypt(server.password) : null, server.sshKey ? encrypt(server.sshKey) : null, server.defaultPath || '/', server.createdAt || new Date().toISOString());
+            });
+        }
+
+        if (theme) {
+            db.prepare('UPDATE users SET theme = ? WHERE id = ?').run(theme, userId);
         }
 
         db.prepare('COMMIT').run();
@@ -303,22 +349,35 @@ app.get('/user/data', authMiddleware, (req, res) => {
     const userId = req.user.id;
 
     try {
-        const recentFiles = db.prepare('SELECT file_path as path, file_name as name, last_opened as lastOpened FROM user_recent_files WHERE user_id = ?').all(userId);
+        const recentFiles = db.prepare('SELECT file_path as path, file_name as name, last_opened as lastOpened, server_name as serverName, server_ip as serverIp, server_port as serverPort, server_user as serverUser, server_default_path as serverDefaultPath FROM user_recent_files WHERE user_id = ?').all(userId);
 
-        const starredFiles = db.prepare('SELECT file_path as path, file_name as name, last_opened as lastOpened FROM user_starred_files WHERE user_id = ?').all(userId);
+        const starredFiles = db.prepare('SELECT file_path as path, file_name as name, last_opened as lastOpened, server_name as serverName, server_ip as serverIp, server_port as serverPort, server_user as serverUser, server_default_path as serverDefaultPath FROM user_starred_files WHERE user_id = ?').all(userId);
 
-        const folderShortcuts = db.prepare('SELECT folder_path as path, folder_name as name FROM user_folder_shortcuts WHERE user_id = ?').all(userId);
+        const folderShortcuts = db.prepare('SELECT folder_path as path, folder_name as name, server_name as serverName, server_ip as serverIp, server_port as serverPort, server_user as serverUser, server_default_path as serverDefaultPath FROM user_folder_shortcuts WHERE user_id = ?').all(userId);
 
-        const openTabs = db.prepare('SELECT tab_id as id, file_name as name, file_path as path, content, saved_content as savedContent, is_dirty as isDirty FROM user_open_tabs WHERE user_id = ?').all(userId);
+        const openTabs = db.prepare('SELECT tab_id as id, file_name as name, file_path as path, content, saved_content as savedContent, is_dirty as isDirty, server_name as serverName, server_ip as serverIp, server_port as serverPort, server_user as serverUser FROM user_open_tabs WHERE user_id = ?').all(userId);
 
         const currentPath = db.prepare('SELECT current_path FROM user_current_path WHERE user_id = ?').get(userId);
+
+        const sshServers = db.prepare('SELECT server_name as name, server_ip as ip, server_port as port, username as user, password, ssh_key as sshKey, default_path as defaultPath, created_at as createdAt FROM user_ssh_servers WHERE user_id = ?').all(userId);
+
+        // Decrypt sensitive data
+        const decryptedServers = sshServers.map(server => ({
+            ...server,
+            password: server.password ? decrypt(server.password) : null,
+            sshKey: server.sshKey ? decrypt(server.sshKey) : null
+        }));
+
+        const userTheme = db.prepare('SELECT theme FROM users WHERE id = ?').get(userId)?.theme || 'vscode';
 
         const data = {
             recentFiles,
             starredFiles,
             folderShortcuts,
             openTabs,
-            currentPath: currentPath?.current_path || '/'
+            currentPath: currentPath?.current_path || '/',
+            sshServers: decryptedServers,
+            theme: userTheme
         };
         res.json(data);
     } catch (err) {
@@ -326,6 +385,13 @@ app.get('/user/data', authMiddleware, (req, res) => {
         res.status(500).json({ error: 'Failed to load user data' });
     }
 });
+
+// Migration for existing DBs: add theme column if not exists
+try {
+    db.prepare('ALTER TABLE users ADD COLUMN theme TEXT DEFAULT "vscode"').run();
+} catch (e) {
+    if (!e.message.includes('duplicate column')) throw e;
+}
 
 app.listen(PORT, () => {
     logger.info(`Database API listening at http://localhost:${PORT}`);
