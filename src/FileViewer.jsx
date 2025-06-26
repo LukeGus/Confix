@@ -1,6 +1,6 @@
 import React, {useState, useEffect, useRef} from 'react';
 import {Button, Divider, Text, TextInput, Group, ScrollArea, Paper, Stack, ActionIcon, Modal, Loader} from "@mantine/core";
-import { ArrowUp, Folder, File, FolderOpen, Star, Server, Plus, Monitor, Edit } from 'lucide-react';
+import { ArrowUp, Folder, File, FolderOpen, Star, Server, Plus, Monitor, Edit, Trash2 } from 'lucide-react';
 import { SSHServerModal } from './SSHServerModal.jsx';
 
 const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
@@ -18,6 +18,12 @@ const SSH_API_BASE = isLocalhost
     ? `${window.location.protocol}//${window.location.hostname}:${window.location.port}/ssh`
     : `${window.location.protocol}//${window.location.hostname}:${window.location.port}/ssh`;
 
+const DB_API_BASE = isLocalhost 
+    ? `${window.location.protocol}//${window.location.hostname}:8081`
+    : isIPAddress
+    ? `${window.location.protocol}//${window.location.hostname}:${window.location.port}/database`
+    : `${window.location.protocol}//${window.location.hostname}:${window.location.port}/database`;
+
 const CONFIG_FILE_EXTENSIONS = [
     '.json', '.yaml', '.yml', '.xml', '.ini', '.conf', '.config',
     '.toml', '.env', '.properties', '.cfg', '.txt', '.md', '.log'
@@ -28,7 +34,7 @@ const LOCAL_SERVER = {
     ip: 'local',
     port: null,
     user: null,
-    defaultPath: navigator.platform.includes('Win') ? 'C:/' : '/',
+    defaultPath: '/',
     isLocal: true
 };
 
@@ -42,10 +48,19 @@ export function FileViewer(props) {
     const [showSSHModal, setShowSSHModal] = useState(false);
     const [editingServer, setEditingServer] = useState(null);
     const [isLoading, setIsLoading] = useState(false);
+    const [localDefaultPath, setLocalDefaultPath] = useState('/');
+    const [localContainerName, setLocalContainerName] = useState(LOCAL_SERVER.name);
     const pathInputRef = useRef(null);
 
+    // Create a dynamic LOCAL_SERVER that uses the current localDefaultPath and name
+    const getLocalServer = () => ({
+        ...LOCAL_SERVER,
+        name: localContainerName,
+        defaultPath: localDefaultPath
+    });
+
     const handleBack = async () => {
-        const defaultPath = currentServerState?.defaultPath || LOCAL_SERVER.defaultPath;
+        const defaultPath = currentServerState?.defaultPath || localDefaultPath;
         const normalize = p => (p || '').replace(/\\/g, '/').replace(/\/+/g, '/').replace(/\/$/, '').toLowerCase();
         const normalizedFolder = normalize(folder);
         let atRoot = false;
@@ -114,6 +129,15 @@ export function FileViewer(props) {
 
     const handleEditSSHServer = async (oldServer, newServerConfig) => {
         try {
+            if (oldServer.isLocal) {
+                setLocalDefaultPath(newServerConfig.defaultPath || '/');
+                setLocalContainerName(newServerConfig.name || 'Local Container');
+                // Save the local settings to localStorage for persistence
+                localStorage.setItem('localDefaultPath', newServerConfig.defaultPath || '/');
+                localStorage.setItem('localContainerName', newServerConfig.name || 'Local Container');
+                return;
+            }
+            
             const connectResponse = await fetch(`${SSH_API_BASE}/sshConnect`, {
                 method: 'POST',
                 headers: {
@@ -147,6 +171,35 @@ export function FileViewer(props) {
             ));
         } catch (error) {
             throw error;
+        }
+    };
+
+    const handleDeleteSSHServer = async (server) => {
+        try {
+            // Update the database first, then update local state only on success
+            const updatedServers = sshServers.filter(s => s.name !== server.name);
+            
+            const response = await fetch(`${DB_API_BASE}/user/data`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(localStorage.getItem('token') ? { 'Authorization': `Bearer ${localStorage.getItem('token')}` } : {})
+                },
+                body: JSON.stringify({
+                    sshServers: updatedServers
+                })
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.message || 'Failed to delete server');
+            }
+
+            // Only update local state after successful API call
+            setSSHServers(updatedServers);
+            setMessage('Server deleted successfully');
+        } catch (error) {
+            setMessage(`Error deleting server: ${error.message}`);
         }
     };
 
@@ -217,12 +270,15 @@ export function FileViewer(props) {
 
     const handleLocalContainerClick = () => {
         setIsSSHMode(false);
-        setCurrentServerState(LOCAL_SERVER);
+        const localServer = getLocalServer();
+        setCurrentServerState(localServer);
         if (setCurrentServer) {
-            setCurrentServer(LOCAL_SERVER);
+            setCurrentServer(localServer);
         }
-        const defaultPath = LOCAL_SERVER.defaultPath;
+        const defaultPath = localDefaultPath;
         setFolder(defaultPath);
+        
+        // Always try to load files, even if path doesn't exist
         fetch(`${API_BASE}/files?folder=${encodeURIComponent(defaultPath)}`, {
             headers: localStorage.getItem('token') ? { 'Authorization': `Bearer ${localStorage.getItem('token')}` } : {}
         })
@@ -474,7 +530,22 @@ export function FileViewer(props) {
         }
     }, [folder]);
 
-    if (!isSSHMode && (!folder || folder === '/')) {
+    useEffect(() => {
+        // Load local settings from localStorage on component mount
+        const savedPath = localStorage.getItem('localDefaultPath');
+        const savedName = localStorage.getItem('localContainerName');
+        if (savedPath) {
+            setLocalDefaultPath(savedPath);
+        } else {
+            // Set default path if none exists
+            setLocalDefaultPath('/');
+        }
+        if (savedName) {
+            setLocalContainerName(savedName);
+        }
+    }, []);
+
+    if (!isSSHMode && !currentServerState && (!folder || folder === '/')) {
         return (
             <Stack h="100%" spacing="xs" style={{ padding: '2px' }}>
                 <Paper p="xs" style={{ backgroundColor: '#2F3740', flex: 1 }}>
@@ -520,23 +591,68 @@ export function FileViewer(props) {
                                         display: 'flex',
                                         alignItems: 'center',
                                         width: '100%',
+                                        position: 'relative',
+                                        paddingRight: 0,
                                     }}
                                     onMouseOver={e => e.currentTarget.style.backgroundColor = '#4A5568'}
                                     onMouseOut={e => e.currentTarget.style.backgroundColor = '#36414C'}
                                     onClick={handleLocalContainerClick}
                                 >
                                     <Monitor size={16} color="#4299E1" />
-                                    <Text
-                                        size="sm"
-                                        color="white"
-                                        style={{
-                                            flex: 1,
-                                            marginLeft: 8,
-                                            userSelect: 'none',
-                                        }}
-                                    >
-                                        Local Container
-                                    </Text>
+                                    <div style={{ 
+                                        flex: 1, 
+                                        marginLeft: 8, 
+                                        marginRight: 76,
+                                        minWidth: 0 
+                                    }}>
+                                        <Text
+                                            size="sm"
+                                            color="white"
+                                            style={{
+                                                userSelect: 'none',
+                                                overflow: 'hidden',
+                                                textOverflow: 'ellipsis',
+                                                whiteSpace: 'nowrap'
+                                            }}
+                                        >
+                                            {localContainerName}
+                                        </Text>
+                                        <Text 
+                                            size="xs" 
+                                            color="dimmed" 
+                                            style={{ 
+                                                userSelect: 'none',
+                                                overflow: 'hidden',
+                                                textOverflow: 'ellipsis',
+                                                whiteSpace: 'nowrap'
+                                            }}
+                                        >
+                                            {localDefaultPath}
+                                        </Text>
+                                    </div>
+                                    <div style={{
+                                        position: 'absolute',
+                                        right: 4,
+                                        top: '50%',
+                                        transform: 'translateY(-50%)',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        width: 28,
+                                    }}>
+                                        <ActionIcon
+                                            variant="subtle"
+                                            color="blue"
+                                            style={{ borderRadius: '50%', marginLeft: 0, background: 'none', width: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
+                                            onClick={e => {
+                                                e.stopPropagation();
+                                                setEditingServer(getLocalServer());
+                                                setShowSSHModal(true);
+                                            }}
+                                        >
+                                            <Edit size={16} />
+                                        </ActionIcon>
+                                    </div>
                                 </Paper>
 
                                 {/* SSH Servers */}
@@ -574,7 +690,7 @@ export function FileViewer(props) {
                                                 <div style={{ 
                                                     flex: 1, 
                                                     marginLeft: 8, 
-                                                    marginRight: 60,
+                                                    marginRight: 76,
                                                     minWidth: 0 
                                                 }}>
                                                     <Text 
@@ -610,8 +726,8 @@ export function FileViewer(props) {
                                                     display: 'flex',
                                                     alignItems: 'center',
                                                     justifyContent: 'center',
-                                                    width: 56,
-                                                    gap: 4,
+                                                    width: 72,
+                                                    gap: 0,
                                                 }}>
                                                     <ActionIcon
                                                         variant="subtle"
@@ -624,6 +740,17 @@ export function FileViewer(props) {
                                                         }}
                                                     >
                                                         <Edit size={16} />
+                                                    </ActionIcon>
+                                                    <ActionIcon
+                                                        variant="subtle"
+                                                        color="red"
+                                                        style={{ borderRadius: '50%', marginLeft: 0, background: 'none', width: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
+                                                        onClick={e => {
+                                                            e.stopPropagation();
+                                                            handleDeleteSSHServer(server);
+                                                        }}
+                                                    >
+                                                        <Trash2 size={16} />
                                                     </ActionIcon>
                                                     <ActionIcon
                                                         variant="subtle"
@@ -864,22 +991,22 @@ export function FileViewer(props) {
                         <>
                             <Divider my="xs" color="#4A5568" />
                             <Group spacing="xs">
-                                <Paper
-                                    p="xs"
-                                    onClick={handleBack}
-                                    style={{
-                                        cursor: 'pointer',
-                                        backgroundColor: '#36414C',
-                                        border: '1px solid #4A5568',
-                                        userSelect: 'none',
-                                        transition: 'background 0.2s',
+                            <Paper
+                                p="xs"
+                                onClick={handleBack}
+                                style={{
+                                    cursor: 'pointer',
+                                    backgroundColor: '#36414C',
+                                    border: '1px solid #4A5568',
+                                    userSelect: 'none',
+                                    transition: 'background 0.2s',
                                         flex: 1,
-                                    }}
-                                    onMouseOver={e => e.currentTarget.style.backgroundColor = '#4A5568'}
-                                    onMouseOut={e => e.currentTarget.style.backgroundColor = '#36414C'}
-                                >
-                                    <Group spacing="xs">
-                                        <ArrowUp size={16} color="#A0AEC0" style={{ userSelect: 'none' }} />
+                                }}
+                                onMouseOver={e => e.currentTarget.style.backgroundColor = '#4A5568'}
+                                onMouseOut={e => e.currentTarget.style.backgroundColor = '#36414C'}
+                            >
+                                <Group spacing="xs">
+                                    <ArrowUp size={16} color="#A0AEC0" style={{ userSelect: 'none' }} />
                                         <Text size="sm" color="white" style={{ userSelect: 'none' }}>Back</Text>
                                     </Group>
                                 </Paper>
@@ -919,8 +1046,8 @@ export function FileViewer(props) {
                                     <Group spacing="xs">
                                         <Server size={16} color="#A0AEC0" style={{ userSelect: 'none' }} />
                                         <Text size="sm" color="white" style={{ userSelect: 'none' }}>Servers</Text>
-                                    </Group>
-                                </Paper>
+                                </Group>
+                            </Paper>
                             </Group>
                         </>
                     )}

@@ -49,19 +49,26 @@ export function SSHServerModal({ opened, onClose, onAddServer, onEditServer, edi
     }, [editingServer]);
 
     const handleSubmit = async () => {
-        if (!serverName.trim() || !serverIP.trim() || !username.trim()) {
-            setError('Please fill in all required fields');
-            return;
-        }
+        if (editingServer?.isLocal) {
+            if (!serverName.trim()) {
+                setError('Please fill in the server name');
+                return;
+            }
+        } else {
+            if (!serverName.trim() || !serverIP.trim() || !username.trim()) {
+                setError('Please fill in all required fields');
+                return;
+            }
 
-        if (!useSSHKey && !password.trim()) {
-            setError('Please provide either a password or SSH key');
-            return;
-        }
+            if (!useSSHKey && !password.trim()) {
+                setError('Please provide either a password or SSH key');
+                return;
+            }
 
-        if (useSSHKey && !sshKey.trim()) {
-            setError('Please provide an SSH key');
-            return;
+            if (useSSHKey && !sshKey.trim()) {
+                setError('Please provide an SSH key');
+                return;
+            }
         }
 
         setIsLoading(true);
@@ -70,12 +77,13 @@ export function SSHServerModal({ opened, onClose, onAddServer, onEditServer, edi
         try {
             const serverConfig = {
                 name: serverName.trim(),
-                ip: serverIP.trim(),
-                port: parseInt(serverPort) || 22,
-                user: username.trim(),
+                ip: editingServer?.isLocal ? 'local' : serverIP.trim(),
+                port: editingServer?.isLocal ? null : (parseInt(serverPort) || 22),
+                user: editingServer?.isLocal ? null : username.trim(),
                 defaultPath: defaultPath.trim() || '/',
-                password: useSSHKey ? null : password,
-                sshKey: useSSHKey ? sshKey : null,
+                password: editingServer?.isLocal ? null : (useSSHKey ? null : password),
+                sshKey: editingServer?.isLocal ? null : (useSSHKey ? sshKey : null),
+                isLocal: editingServer?.isLocal || false,
                 createdAt: editingServer?.createdAt || new Date().toISOString()
             };
 
@@ -122,7 +130,9 @@ export function SSHServerModal({ opened, onClose, onAddServer, onEditServer, edi
         <Modal
             opened={opened}
             onClose={handleClose}
-            title={<Text color="white" weight={600} fw={700}>{editingServer ? 'Edit SSH Server' : 'Add SSH Server'}</Text>}
+            title={<Text color="white" weight={600} fw={700}>
+                {editingServer?.isLocal ? 'Edit Local Container' : (editingServer ? 'Edit SSH Server' : 'Add SSH Server')}
+            </Text>}
             size="md"
             centered
             overlayProps={{ background: 'rgba(40,44,52,0.7)', blur: 2 }}
@@ -151,7 +161,7 @@ export function SSHServerModal({ opened, onClose, onAddServer, onEditServer, edi
 
                 <TextInput
                     label="Server Name"
-                    placeholder="My Server"
+                    placeholder={editingServer?.isLocal ? "Local Container" : "My Server"}
                     value={serverName}
                     onChange={(e) => setServerName(e.target.value)}
                     required
@@ -167,66 +177,70 @@ export function SSHServerModal({ opened, onClose, onAddServer, onEditServer, edi
                     }}
                 />
 
-                <TextInput
-                    label="Server IP"
-                    placeholder="192.168.1.100"
-                    value={serverIP}
-                    onChange={(e) => setServerIP(e.target.value)}
-                    required
-                    icon={<Server size={16} />}
-                    styles={{
-                        label: { color: 'white' },
-                        input: {
-                            background: '#36414C',
-                            color: 'white',
-                            borderColor: '#4A5568',
-                            '&::placeholder': { color: '#A0AEC0' }
-                        }
-                    }}
-                />
+                {!editingServer?.isLocal && (
+                    <>
+                        <TextInput
+                            label="Server IP"
+                            placeholder="192.168.1.100"
+                            value={serverIP}
+                            onChange={(e) => setServerIP(e.target.value)}
+                            required
+                            icon={<Server size={16} />}
+                            styles={{
+                                label: { color: 'white' },
+                                input: {
+                                    background: '#36414C',
+                                    color: 'white',
+                                    borderColor: '#4A5568',
+                                    '&::placeholder': { color: '#A0AEC0' }
+                                }
+                            }}
+                        />
 
-                <TextInput
-                    label="Port"
-                    placeholder="22"
-                    value={serverPort}
-                    onChange={(e) => setServerPort(e.target.value)}
-                    required
-                    icon={<Server size={16} />}
-                    styles={{
-                        label: { color: 'white' },
-                        input: {
-                            background: '#36414C',
-                            color: 'white',
-                            borderColor: '#4A5568',
-                            '&::placeholder': { color: '#A0AEC0' }
-                        }
-                    }}
-                />
+                        <TextInput
+                            label="Port"
+                            placeholder="22"
+                            value={serverPort}
+                            onChange={(e) => setServerPort(e.target.value)}
+                            required
+                            icon={<Server size={16} />}
+                            styles={{
+                                label: { color: 'white' },
+                                input: {
+                                    background: '#36414C',
+                                    color: 'white',
+                                    borderColor: '#4A5568',
+                                    '&::placeholder': { color: '#A0AEC0' }
+                                }
+                            }}
+                        />
 
-                <TextInput
-                    label="Username"
-                    placeholder="root"
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
-                    required
-                    icon={<Server size={16} />}
-                    styles={{
-                        label: { color: 'white' },
-                        input: {
-                            background: '#36414C',
-                            color: 'white',
-                            borderColor: '#4A5568',
-                            '&::placeholder': { color: '#A0AEC0' }
-                        }
-                    }}
-                />
+                        <TextInput
+                            label="Username"
+                            placeholder="root"
+                            value={username}
+                            onChange={(e) => setUsername(e.target.value)}
+                            required
+                            icon={<Server size={16} />}
+                            styles={{
+                                label: { color: 'white' },
+                                input: {
+                                    background: '#36414C',
+                                    color: 'white',
+                                    borderColor: '#4A5568',
+                                    '&::placeholder': { color: '#A0AEC0' }
+                                }
+                            }}
+                        />
+                    </>
+                )}
 
                 <TextInput
                     label="Default Path"
-                    placeholder="/home/user"
+                    placeholder={editingServer?.isLocal ? "/" : "/home/user"}
                     value={defaultPath}
                     onChange={(e) => setDefaultPath(e.target.value)}
-                    description="Path to navigate to when connecting to this server"
+                    description={editingServer?.isLocal ? "Default path for local file browsing" : "Path to navigate to when connecting to this server"}
                     icon={<Server size={16} />}
                     styles={{
                         label: { color: 'white' },
@@ -240,68 +254,72 @@ export function SSHServerModal({ opened, onClose, onAddServer, onEditServer, edi
                     }}
                 />
 
-                <Group position="apart">
-                    <Text size="sm" color="white">Authentication Method</Text>
-                    <Switch
-                        checked={useSSHKey}
-                        onChange={(event) => setUseSSHKey(event.currentTarget.checked)}
-                        label={useSSHKey ? "SSH Key" : "Password"}
-                        color="blue"
-                        styles={{
-                            label: { color: 'white' },
-                            track: {
-                                backgroundColor: useSSHKey ? '#36414C' : '#2f3740',
-                                borderColor: '#4A5568',
-                            },
-                            thumb: {
-                                backgroundColor: useSSHKey ? '#4299E1' : '#A0AEC0',
-                            }
-                        }}
-                    />
-                </Group>
+                {!editingServer?.isLocal && (
+                    <>
+                        <Group position="apart">
+                            <Text size="sm" color="white">Authentication Method</Text>
+                            <Switch
+                                checked={useSSHKey}
+                                onChange={(event) => setUseSSHKey(event.currentTarget.checked)}
+                                label={useSSHKey ? "SSH Key" : "Password"}
+                                color="blue"
+                                styles={{
+                                    label: { color: 'white' },
+                                    track: {
+                                        backgroundColor: useSSHKey ? '#36414C' : '#2f3740',
+                                        borderColor: '#4A5568',
+                                    },
+                                    thumb: {
+                                        backgroundColor: useSSHKey ? '#4299E1' : '#A0AEC0',
+                                    }
+                                }}
+                            />
+                        </Group>
 
-                {!useSSHKey ? (
-                    <PasswordInput
-                        label="Password"
-                        placeholder="Enter password"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        required
-                        icon={<Lock size={16} />}
-                        styles={{
-                            label: { color: 'white' },
-                            input: {
-                                background: '#36414C',
-                                color: 'white',
-                                borderColor: '#4A5568',
-                                '&::placeholder': { color: '#A0AEC0' }
-                            },
-                            innerInput: {
-                                background: '#36414C',
-                                color: 'white',
-                                '&::placeholder': { color: '#A0AEC0' }
-                            }
-                        }}
-                    />
-                ) : (
-                    <Textarea
-                        label="SSH Private Key"
-                        placeholder="-----BEGIN OPENSSH PRIVATE KEY-----..."
-                        value={sshKey}
-                        onChange={(e) => setSSHKey(e.target.value)}
-                        required
-                        minRows={4}
-                        icon={<Key size={16} />}
-                        styles={{
-                            label: { color: 'white' },
-                            input: {
-                                background: '#36414C',
-                                color: 'white',
-                                borderColor: '#4A5568',
-                                '&::placeholder': { color: '#A0AEC0' }
-                            }
-                        }}
-                    />
+                        {!useSSHKey ? (
+                            <PasswordInput
+                                label="Password"
+                                placeholder="Enter password"
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                required
+                                icon={<Lock size={16} />}
+                                styles={{
+                                    label: { color: 'white' },
+                                    input: {
+                                        background: '#36414C',
+                                        color: 'white',
+                                        borderColor: '#4A5568',
+                                        '&::placeholder': { color: '#A0AEC0' }
+                                    },
+                                    innerInput: {
+                                        background: '#36414C',
+                                        color: 'white',
+                                        '&::placeholder': { color: '#A0AEC0' }
+                                    }
+                                }}
+                            />
+                        ) : (
+                            <Textarea
+                                label="SSH Private Key"
+                                placeholder="-----BEGIN OPENSSH PRIVATE KEY-----..."
+                                value={sshKey}
+                                onChange={(e) => setSSHKey(e.target.value)}
+                                required
+                                minRows={4}
+                                icon={<Key size={16} />}
+                                styles={{
+                                    label: { color: 'white' },
+                                    input: {
+                                        background: '#36414C',
+                                        color: 'white',
+                                        borderColor: '#4A5568',
+                                        '&::placeholder': { color: '#A0AEC0' }
+                                    }
+                                }}
+                            />
+                        )}
+                    </>
                 )}
 
                 <Group position="right" mt="md">
