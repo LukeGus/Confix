@@ -11,6 +11,11 @@ mkdir -p /app/data
 chown -R node:node /app/data
 chmod 755 /app/data
 
+# Ensure backend data directory exists
+mkdir -p /app/src/backend/data
+chown -R node:node /app/src/backend/data
+chmod 755 /app/src/backend/data
+
 echo "Starting nginx..."
 nginx
 
