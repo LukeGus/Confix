@@ -79,7 +79,7 @@ If you need help with Confix, you can join the [Discord](https://discord.gg/jVQG
 # Show-off
 
 [https://rawcdn.githack.com/LukeGus/Confix/ecb5fdb4af14c0fa35db029d3e701529050093d6/repo-images/DemoVideo1.mp4
-](https://github.com/user-attachments/assets/c54d0246-bcd5-4399-8a1f-29f3d4c327b7)
+](https://github.com/user-attachments/assets/75a255b1-ac25-46a3-a561-9527dd4a9a8f)
 
 # License
 Distributed under the MIT license. See LICENSE for more information.
