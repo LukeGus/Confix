@@ -6,7 +6,7 @@ services:
     ports:
       - "8080:8080"
     volumes:
-      - confix-data:/app/src/backend
+      - confix-data:/app/src/backend/data
       # Add volume mappings for your configuration directories below.
       # Example: - /apps/:/apps
       # (Left side: path on your server, Right side: path as accessed inside the Confix file browser)

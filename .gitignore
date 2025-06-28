@@ -25,3 +25,4 @@ dist-ssr
 /src/backend/users.db
 /src/backend/users.db-shm
 /src/backend/users.db-wal
+/src/backend/data/

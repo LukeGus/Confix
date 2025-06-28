@@ -6,9 +6,10 @@ import {CodeEditor} from "./CodeEditor.jsx";
 import {FileViewer} from "./FileViewer.jsx";
 import {TabList} from "./TabList.jsx";
 import {HomeView} from "./HomeView.jsx";
-import { IconDeviceFloppy } from '@tabler/icons-react';
+import { Save } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import {User} from "./User.jsx";
+import * as themesAll from '@uiw/codemirror-themes-all';
 
 const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 const isIPAddress = /^\d+\.\d+\.\d+\.\d+$/.test(window.location.hostname);
@@ -18,6 +19,12 @@ const API_BASE = isLocalhost
     : isIPAddress
     ? `${window.location.protocol}//${window.location.hostname}:${window.location.port}/fileviewer`
     : `${window.location.protocol}//${window.location.hostname}/fileviewer`;
+
+const SSH_API_BASE = isLocalhost
+    ? `${window.location.protocol}//${window.location.hostname}:8083`
+    : isIPAddress
+    ? `${window.location.protocol}//${window.location.hostname}:${window.location.port}/ssh`
+    : `${window.location.protocol}//${window.location.hostname}/ssh`;
 
 const DB_API_BASE = isLocalhost
     ? `${window.location.protocol}//${window.location.hostname}:8081`
@@ -31,6 +38,15 @@ const theme = createTheme({
     },
 });
 
+const LOCAL_SERVER = {
+    name: 'Local Container',
+    ip: 'local',
+    port: null,
+    user: null,
+    defaultPath: navigator.platform.includes('Win') ? 'C:/' : '/',
+    isLocal: true
+};
+
 function App() {
     const [opened, {toggle}] = useDisclosure(true);
     const [tabState, setTabState] = useState({ tabs: [], activeTab: 'home' });
@@ -40,10 +56,15 @@ function App() {
     const [recentFiles, setRecentFiles] = useState([]);
     const [starredFiles, setStarredFiles] = useState([]);
     const [folderShortcuts, setFolderShortcuts] = useState([]);
+    const [sshServers, setSSHServers] = useState([]);
+    const [currentServer, setCurrentServer] = useState(null);
     const [user, setUser] = useState(null);
     const [token, setToken] = useState(null);
     const [showSettings, setShowSettings] = useState(false);
     const [authReady, setAuthReady] = useState(false);
+    const [userTheme, setUserTheme] = useState('vscode');
+    const [isSSHConnecting, setIsSSHConnecting] = useState(false);
+    const [connectingToServer, setConnectingToServer] = useState(null);
 
     const handleCloseTab = (tabId) => {
         setTabState(prev => {
@@ -63,64 +84,95 @@ function App() {
         });
     };
 
-    const createTab = (file, folderPath) => {
-        const normalizedPath = `${folderPath}/${file}`.replace(/\\/g, '/').replace(/\/+/g, '/');
+    const createTab = (file, folderPath, server = null, filePath = null) => {
+        const normalizedPath = filePath || `${folderPath}/${file}`.replace(/\\/g, '/').replace(/\/+/g, '/');
         const newTab = {
             id: uuidv4(),
             name: file,
             path: normalizedPath,
             content: '',
             isDirty: false,
-            savedContent: ''
+            savedContent: '',
+            server: server
         };
 
-        fetch(`${API_BASE}/file?folder=${encodeURIComponent(folderPath)}&name=${encodeURIComponent(file)}`, {
-            headers: token ? { 'Authorization': `Bearer ${token}` } : (localStorage.getItem('token') ? { 'Authorization': `Bearer ${localStorage.getItem('token')}` } : {})
-        })
-            .then(res => {
-                if (!res.ok) throw new Error(res.statusText);
-                return res.text();
+        if (server && !server.isLocal) {
+            fetch(`${SSH_API_BASE}/readFile?path=${encodeURIComponent(normalizedPath)}`, {
+                headers: token ? { 'Authorization': `Bearer ${token}` } : (localStorage.getItem('token') ? { 'Authorization': `Bearer ${localStorage.getItem('token')}` } : {})
             })
-            .then(content => {
-                setTabState(prev2 => ({
-                    ...prev2,
-                    tabs: prev2.tabs.map(tab =>
-                        tab.id === newTab.id
-                            ? { ...tab, content, savedContent: content }
-                            : tab
-                    )
-                }));
+                .then(res => {
+                    if (!res.ok) throw new Error(res.statusText);
+                    return res.json();
+                })
+                .then(data => {
+                    if (data.status === 'success') {
+                        setTabState(prev2 => ({
+                            ...prev2,
+                            tabs: prev2.tabs.map(tab =>
+                                tab.id === newTab.id
+                                    ? { ...tab, content: data.content, savedContent: data.content }
+                                    : tab
+                            )
+                        }));
+                    } else {
+                        throw new Error(data.message || 'Failed to read file');
+                    }
+                })
+                .catch(error => {
+                });
+        } else {
+            fetch(`${API_BASE}/file?folder=${encodeURIComponent(folderPath)}&name=${encodeURIComponent(file)}`, {
+                headers: token ? { 'Authorization': `Bearer ${token}` } : (localStorage.getItem('token') ? { 'Authorization': `Bearer ${localStorage.getItem('token')}` } : {})
             })
+                .then(res => {
+                    if (!res.ok) throw new Error(res.statusText);
+                    return res.text();
+                })
+                .then(content => {
+                    setTabState(prev2 => ({
+                        ...prev2,
+                        tabs: prev2.tabs.map(tab =>
+                            tab.id === newTab.id
+                                ? { ...tab, content, savedContent: content }
+                                : tab
+                        )
+                    }));
+                })
+                .catch(error => {
+                });
+        }
 
         return newTab;
     };
 
-    const handleFileSelect = (file, folderPath) => {
+    const handleFileSelect = (file, folderPath, server = null, filePath = null) => {
+        let effectiveServer = server;
+        if (!effectiveServer) {
+            effectiveServer = currentServer || LOCAL_SERVER;
+        }
+        
         if (!file) {
             setFolder(folderPath);
             setTabState(prev => ({ ...prev, activeTab: 'fileviewer' }));
             return;
         }
         setTabState(prev => {
-            const normalizedPath = `${folderPath}/${file}`.replace(/\\/g, '/').replace(/\/+/g, '/');
-
+            const normalizedPath = filePath || `${folderPath}/${file}`.replace(/\\/g, '/').replace(/\/+/g, '/');
             const existingTab = prev.tabs.find(tab => tab.path === normalizedPath);
             if (existingTab) {
                 return { ...prev, activeTab: existingTab.id };
             }
-
-            const newTab = createTab(file, folderPath);
-
+            const newTab = createTab(file, folderPath, effectiveServer, filePath);
             const fileInfo = {
                 name: file,
                 path: normalizedPath,
-                lastOpened: new Date().toISOString()
+                lastOpened: new Date().toISOString(),
+                server: effectiveServer
             };
             setRecentFiles(prev => {
-                const filtered = prev.filter(f => f.path !== fileInfo.path);
+                const filtered = prev.filter(f => f.path !== fileInfo.path || !compareServers(f.server, effectiveServer));
                 return [fileInfo, ...filtered].slice(0, 10);
             });
-
             return { tabs: [...prev.tabs, newTab], activeTab: newTab.id };
         });
     };
@@ -198,6 +250,20 @@ function App() {
         }
     }, [pendingTabs, isLoading]);
 
+    useEffect(() => {
+        if (!isInitialLoad && !isLoading && pendingTabs.length === 0 && user && currentServer) {
+            if (!currentServer.isLocal) {
+                handleSSHConnect(currentServer).then(connected => {
+                    if (connected) {
+                        setFolder(currentServer.defaultPath || '/');
+                    }
+                });
+            } else {
+                setFolder(currentServer.defaultPath);
+            }
+        }
+    }, [isInitialLoad, isLoading, pendingTabs, user, currentServer]);
+
     const loadBasicUserData = async () => {
         if (!user) return;
         try {
@@ -215,85 +281,176 @@ function App() {
             setRecentFiles([]);
             setStarredFiles([]);
             setFolderShortcuts([]);
+            setSSHServers([]);
+            setCurrentServer(null);
             setFolder('/');
             setTabState({ tabs: [], activeTab: 'home' });
 
             if (Array.isArray(data.recentFiles)) {
-                setRecentFiles(data.recentFiles);
+                const recentFilesWithServers = data.recentFiles.map(file => ({
+                    ...file,
+                    server: file.serverName ? 
+                        (file.serverName === LOCAL_SERVER.name && file.serverIp === LOCAL_SERVER.ip) ? 
+                            LOCAL_SERVER : 
+                            {
+                                name: file.serverName,
+                                ip: file.serverIp,
+                                port: file.serverPort,
+                                user: file.serverUser,
+                                defaultPath: file.serverDefaultPath
+                            }
+                        : null
+                }));
+                setRecentFiles(recentFilesWithServers);
             }
 
             if (Array.isArray(data.starredFiles)) {
-                setStarredFiles(data.starredFiles);
+                const starredFilesWithServers = data.starredFiles.map(file => ({
+                    ...file,
+                    server: file.serverName ? 
+                        (file.serverName === LOCAL_SERVER.name && file.serverIp === LOCAL_SERVER.ip) ? 
+                            LOCAL_SERVER : 
+                            {
+                                name: file.serverName,
+                                ip: file.serverIp,
+                                port: file.serverPort,
+                                user: file.serverUser,
+                                defaultPath: file.serverDefaultPath
+                            }
+                        : null
+                }));
+                setStarredFiles(starredFilesWithServers);
             }
 
             if (Array.isArray(data.folderShortcuts)) {
-                setFolderShortcuts(data.folderShortcuts);
+                const folderShortcutsWithServers = data.folderShortcuts.map(folder => ({
+                    ...folder,
+                    server: folder.serverName ? 
+                        (folder.serverName === LOCAL_SERVER.name && folder.serverIp === LOCAL_SERVER.ip) ? 
+                            LOCAL_SERVER : 
+                            {
+                                name: folder.serverName,
+                                ip: folder.serverIp,
+                                port: folder.serverPort,
+                                user: folder.serverUser,
+                                defaultPath: folder.serverDefaultPath
+                            }
+                        : null
+                }));
+                setFolderShortcuts(folderShortcutsWithServers);
             }
 
-            if (typeof data.currentPath === 'string') {
-                setFolder(data.currentPath);
+            if (Array.isArray(data.sshServers)) {
+                setSSHServers(data.sshServers);
             }
 
-            if (Array.isArray(data.openTabs) && data.openTabs.length > 0) {
-                setPendingTabs(data.openTabs);
-            }
+            if (data.theme) setUserTheme(data.theme);
         } catch (error) {
             throw error;
         }
     };
 
     const restoreTabs = async (tabsToRestore) => {
-        const newTabs = [];
+        if (!tabsToRestore || tabsToRestore.length === 0) {
+            setPendingTabs([]);
+            return;
+        }
+        const firstTab = tabsToRestore[0];
+        let server = null;
+
+        if (firstTab.serverName === LOCAL_SERVER.name && firstTab.serverIp === LOCAL_SERVER.ip) {
+            server = LOCAL_SERVER;
+        } else if (firstTab.serverName && firstTab.serverIp && firstTab.serverUser) {
+            server = {
+                name: firstTab.serverName,
+                ip: firstTab.serverIp,
+                port: firstTab.serverPort,
+                user: firstTab.serverUser,
+                defaultPath: firstTab.serverDefaultPath
+            };
+        }
         
+        if (server && !server.isLocal) {
+            const connected = await handleSSHConnect(server);
+            if (!connected) {
+                setPendingTabs([]);
+                return;
+            }
+            setCurrentServer(server);
+            setFolder(server.defaultPath || '/');
+        } else {
+            setCurrentServer(LOCAL_SERVER);
+            setFolder(LOCAL_SERVER.defaultPath);
+        }
+        const newTabs = [];
         for (const tab of tabsToRestore) {
             const pathParts = tab.path.split('/').filter(Boolean);
             const fileName = pathParts.pop() || '';
             const folderPath = '/' + pathParts.join('/');
-            
             try {
-                const fileCheckResponse = await fetch(`${API_BASE}/files?folder=${encodeURIComponent(folderPath)}`, {
-                    headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-                });
-                
-                if (!fileCheckResponse.ok) {
-                    continue;
+                if (server && !server.isLocal) {
+                    const fileCheckResponse = await fetch(`${SSH_API_BASE}/listFiles?path=${encodeURIComponent(folderPath)}`, {
+                        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+                    });
+                    if (!fileCheckResponse.ok) continue;
+                    const data = await fileCheckResponse.json();
+                    if (data.status === 'success') {
+                        const fileExists = data.files.some(f => f.name === fileName && f.type === 'file');
+                        if (!fileExists) continue;
+                        const contentResponse = await fetch(`${SSH_API_BASE}/readFile?path=${encodeURIComponent(tab.path)}`, {
+                            headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+                        });
+                        if (contentResponse.ok) {
+                            const contentData = await contentResponse.json();
+                            if (contentData.status === 'success') {
+                                const newTab = {
+                                    id: uuidv4(),
+                                    name: fileName,
+                                    path: tab.path,
+                                    content: contentData.content,
+                                    savedContent: contentData.content,
+                                    isDirty: false,
+                                    server: server
+                                };
+                                newTabs.push(newTab);
+                            }
+                        }
+                    }
+                } else {
+                    const fileCheckResponse = await fetch(`${API_BASE}/files?folder=${encodeURIComponent(folderPath)}`, {
+                        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+                    });
+                    if (!fileCheckResponse.ok) continue;
+                    const files = await fileCheckResponse.json();
+                    const fileExists = files.some(f => f.name === fileName && f.type === 'file');
+                    if (!fileExists) continue;
+                    const contentResponse = await fetch(`${API_BASE}/file?folder=${encodeURIComponent(folderPath)}&name=${encodeURIComponent(fileName)}`, {
+                        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+                    });
+                    if (contentResponse.ok) {
+                        const content = await contentResponse.text();
+                        const newTab = {
+                            id: uuidv4(),
+                            name: fileName,
+                            path: tab.path,
+                            content: content,
+                            savedContent: content,
+                            isDirty: false,
+                            server: LOCAL_SERVER
+                        };
+                        newTabs.push(newTab);
+                    }
                 }
-
-                const files = await fileCheckResponse.json();
-                const fileExists = files.some(f => f.name === fileName && f.type === 'file');
-                
-                if (!fileExists) {
-                    continue;
-                }
-
-                const contentResponse = await fetch(`${API_BASE}/file?folder=${encodeURIComponent(folderPath)}&name=${encodeURIComponent(fileName)}`, {
-                    headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-                });
-                
-                if (contentResponse.ok) {
-                    const content = await contentResponse.text();
-                    const newTab = {
-                        id: uuidv4(),
-                        name: fileName,
-                        path: tab.path,
-                        content: content,
-                        savedContent: content,
-                        isDirty: false
-                    };
-                    newTabs.push(newTab);
-                } else {}
-            } catch (error) {}
+            } catch (error) {
+            }
         }
-        
         if (newTabs.length > 0) {
             setTabState(prev => ({
                 ...prev,
                 tabs: newTabs,
                 activeTab: 'home'
             }));
-        } else {
         }
-
         setPendingTabs([]);
     };
 
@@ -301,23 +458,56 @@ function App() {
         if (user && !isInitialLoad && !isLoading && pendingTabs.length === 0) {
             saveUserData();
         }
-    }, [tabState.tabs, tabState.activeTab, recentFiles, starredFiles, folderShortcuts, folder, user, isInitialLoad, isLoading, pendingTabs]);
+    }, [tabState.tabs, tabState.activeTab, recentFiles, starredFiles, folderShortcuts, sshServers, folder, user, isInitialLoad, isLoading, pendingTabs]);
 
     const saveUserData = async () => {
         if (!user || isLoading) return;
         const dataToSave = {
-            recentFiles,
-            starredFiles,
-            folderShortcuts,
+            recentFiles: recentFiles.map(file => ({
+                name: file.name,
+                path: file.path,
+                lastOpened: file.lastOpened,
+                serverName: file.server?.name || null,
+                serverIp: file.server?.ip || null,
+                serverPort: file.server?.port || null,
+                serverUser: file.server?.user || null,
+                serverDefaultPath: file.server?.defaultPath || null
+            })),
+            starredFiles: starredFiles.map(file => ({
+                name: file.name,
+                path: file.path,
+                lastOpened: file.lastOpened,
+                serverName: file.server?.name || null,
+                serverIp: file.server?.ip || null,
+                serverPort: file.server?.port || null,
+                serverUser: file.server?.user || null,
+                serverDefaultPath: file.server?.defaultPath || null
+            })),
+            folderShortcuts: folderShortcuts.map(folder => ({
+                path: folder.path,
+                name: folder.name,
+                serverName: folder.server?.name || null,
+                serverIp: folder.server?.ip || null,
+                serverPort: folder.server?.port || null,
+                serverUser: folder.server?.user || null,
+                serverDefaultPath: folder.server?.defaultPath || null
+            })),
+            sshServers,
             openTabs: tabState.tabs.map(tab => ({
                 id: tab.id,
                 name: tab.name,
                 path: tab.path,
                 content: tab.content,
                 savedContent: tab.savedContent,
-                isDirty: tab.isDirty
+                isDirty: tab.isDirty,
+                serverName: tab.server?.name || null,
+                serverIp: tab.server?.ip || null,
+                serverPort: tab.server?.port || null,
+                serverUser: tab.server?.user || null,
+                serverDefaultPath: tab.server?.defaultPath || null
             })),
-            currentPath: folder
+            currentPath: folder,
+            theme: userTheme,
         };
         try {
             const response = await fetch(`${DB_API_BASE}/user/data`, {
@@ -346,6 +536,58 @@ function App() {
         localStorage.removeItem('token');
         window.location.href = window.location.href;
     };
+
+    const handleSSHConnect = async (server) => {
+        try {
+            setIsSSHConnecting(true);
+            setConnectingToServer(server);
+            if (currentServer && compareServers(currentServer, server)) {
+                return true;
+            }
+
+            if (!server.ip || !server.user) {
+                throw new Error('Missing required host configuration (ip, user)');
+            }
+
+            if (!server.password && !server.sshKey) {
+                throw new Error('Either password or SSH key must be provided');
+            }
+
+            const connectResponse = await fetch(`${SSH_API_BASE}/sshConnect`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(localStorage.getItem('token') ? { 'Authorization': `Bearer ${localStorage.getItem('token')}` } : {})
+                },
+                body: JSON.stringify({
+                    ip: server.ip,
+                    port: server.port,
+                    user: server.user,
+                    password: server.password,
+                    sshKey: server.sshKey
+                })
+            });
+
+            if (!connectResponse.ok) {
+                const errorData = await connectResponse.json();
+                throw new Error(errorData.message || 'Failed to connect to server');
+            }
+
+            return true;
+        } catch (error) {
+            return false;
+        } finally {
+            setIsSSHConnecting(false);
+            setConnectingToServer(null);
+        }
+    };
+
+    function compareServers(a, b) {
+        if (!a && !b) return true;
+        if (!a || !b) return false;
+        if (a.isLocal && b.isLocal) return true;
+        return a.name === b.name && a.ip === b.ip && a.port === b.port && a.user === b.user;
+    }
 
     return (
         <MantineProvider theme={theme}>
@@ -414,29 +656,25 @@ function App() {
                         closeTab={handleCloseTab}
                         onHomeClick={handleHomeClick}
                     />
-                    <Button 
+                    <Button
                         onClick={handleSave}
-                        variant="filled"
-                        color="blue"
-                        disabled={!activeTab || activeTab === 'home' || !hasUnsavedChanges}
-                        leftSection={<IconDeviceFloppy size={16} />}
-                        style={{ 
-                            flexShrink: 0,
-                                backgroundColor: !activeTab || activeTab === 'home' || !hasUnsavedChanges ? '#2f3740' : '#4A5568',
+                        disabled={!hasUnsavedChanges}
+                        leftSection={<Save size={16} />}
+                        style={{
+                            backgroundColor: hasUnsavedChanges ? '#4a5568' : '#2f3740',
                             color: 'white',
                             borderColor: '#4A5568',
-                            transition: 'background 0.2s',
+                            borderRadius: 4,
+                            fontWeight: 500,
+                            fontSize: 14,
+                            transition: 'background 0.2s'
                         }}
-                        onMouseOver={e => {
-                            if (!(!activeTab || activeTab === 'home' || !hasUnsavedChanges)) e.currentTarget.style.backgroundColor = '#36414C';
-                        }}
-                        onMouseOut={e => {
-                                e.currentTarget.style.backgroundColor = !activeTab || activeTab === 'home' || !hasUnsavedChanges ? '#2f3740' : '#4A5568';
-                        }}
+                        onMouseOver={e => e.currentTarget.style.backgroundColor = hasUnsavedChanges ? '#2f3740' : '#4a5568'}
+                        onMouseOut={e => e.currentTarget.style.backgroundColor = hasUnsavedChanges ? '#4a5568' : '#2f3740'}
                     >
                         Save
                     </Button>
-                        <User onAuth={handleAuth} user={user} setUser={setUser} setShowSettings={setShowSettings} />
+                    <User onAuth={handleAuth} user={user} setUser={setUser} setShowSettings={setShowSettings} userTheme={userTheme} setUserTheme={setUserTheme} />
                 </AppShell.Header>
                 <AppShell.Navbar p="md" style={{ 
                     backgroundColor: '#36414C',
@@ -465,6 +703,13 @@ function App() {
                         folder={folder}
                         setFolder={setFolder}
                         tabs={tabs}
+                        sshServers={sshServers}
+                        setSSHServers={setSSHServers}
+                        onSSHConnect={handleSSHConnect}
+                        setCurrentServer={setCurrentServer}
+                        setTabState={setTabState}
+                        setConnectingToServer={setConnectingToServer}
+                        connectingToServer={connectingToServer}
                     />
                 </AppShell.Navbar>
                 <AppShell.Main 
@@ -508,12 +753,17 @@ function App() {
                             setFolder={setFolder}
                             setActiveTab={id => setTabState(prev => ({ ...prev, activeTab: id }))}
                             handleRemoveRecent={handleRemoveRecent}
+                            onSSHConnect={handleSSHConnect}
+                            currentServer={currentServer}
+                            isSSHConnecting={isSSHConnecting || connectingToServer}
                         />
                     ) : activeTabData ? (
                         <CodeEditor
                             isNavbarOpen={opened}
                             content={activeTabData.content}
+                            fileName={activeTabData.name}
                             onContentChange={handleContentChange}
+                            theme={userTheme}
                         />
                     ) : (
                         <div style={{ 
@@ -528,7 +778,7 @@ function App() {
                 </AppShell.Main>
             </AppShell>
                 {!user && (
-                    <User onAuth={handleAuth} user={user} setUser={setUser} setShowSettings={setShowSettings} />
+                    <User onAuth={handleAuth} user={user} setUser={setUser} setShowSettings={setShowSettings} userTheme={userTheme} setUserTheme={setUserTheme} />
                 )}
             </div>
         </MantineProvider>

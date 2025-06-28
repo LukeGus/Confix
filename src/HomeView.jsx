@@ -9,22 +9,29 @@ import {
     ScrollArea,
     TextInput,
     Divider,
-    SimpleGrid
+    SimpleGrid,
+    Loader
 } from '@mantine/core';
 import { 
-    IconStar, 
-    IconStarFilled, 
-    IconFolder, 
-    IconFile, 
-    IconTrash,
-    IconPlus,
-    IconHistory,
-    IconBookmark,
-    IconFolders
-} from '@tabler/icons-react';
+    Star, 
+    Folder, 
+    File, 
+    Trash2,
+    Plus,
+    History,
+    Bookmark,
+    Folders
+} from 'lucide-react';
 import { StarHoverableIcon } from './FileViewer.jsx';
 
-export function HomeView({ onFileSelect, recentFiles, starredFiles, setStarredFiles, folderShortcuts, setFolderShortcuts, setFolder, setActiveTab, handleRemoveRecent }) {
+function compareServers(a, b) {
+    if (!a && !b) return true;
+    if (!a || !b) return false;
+    if (a.isLocal && b.isLocal) return true;
+    return a.name === b.name && a.ip === b.ip && a.port === b.port && a.user === b.user;
+}
+
+export function HomeView({ onFileSelect, recentFiles, starredFiles, setStarredFiles, folderShortcuts, setFolderShortcuts, setFolder, setActiveTab, handleRemoveRecent, onSSHConnect, currentServer, isSSHConnecting }) {
     const [newFolderPath, setNewFolderPath] = useState('');
     const [activeSection, setActiveSection] = useState('recent');
 
@@ -47,12 +54,53 @@ export function HomeView({ onFileSelect, recentFiles, starredFiles, setStarredFi
 
     const handleAddFolder = () => {
         if (!newFolderPath) return;
-        setFolderShortcuts([...folderShortcuts, { path: newFolderPath, name: newFolderPath.split('/').pop() }]);
+        setFolderShortcuts([...folderShortcuts, { path: newFolderPath, name: newFolderPath.split('/').pop(), server: currentServer }]);
         setNewFolderPath('');
+    };
+
+    const getServerSpecificData = (data) => {
+        if (!currentServer) return [];
+        return data.filter(item => compareServers(item.server, currentServer));
+    };
+
+    const serverRecentFiles = getServerSpecificData(recentFiles);
+    const serverStarredFiles = getServerSpecificData(starredFiles);
+    const serverFolderShortcuts = getServerSpecificData(folderShortcuts);
+
+    const handleFileClick = async (file) => {
+        if (file.server && !file.server.isLocal) {
+            if (onSSHConnect && (!currentServer || !compareServers(currentServer, file.server))) {
+                const connected = await onSSHConnect(file.server);
+                if (!connected) {
+                    return;
+                }
+            }
+            const pathParts = file.path.split('/').filter(Boolean);
+            const fileName = pathParts.pop() || '';
+            const folderPath = '/' + pathParts.join('/');
+            onFileSelect(fileName, folderPath, file.server, file.path);
+        } else {
+            let parentFolder;
+            if (navigator.platform.includes('Win') && file.path.includes(':')) {
+                const lastSlashIndex = file.path.lastIndexOf('/');
+                if (lastSlashIndex === -1) {
+                    const driveLetter = file.path.substring(0, file.path.indexOf(':') + 1);
+                    parentFolder = driveLetter + '/';
+                } else {
+                    parentFolder = file.path.substring(0, lastSlashIndex + 1);
+                }
+            } else {
+                const lastSlashIndex = file.path.lastIndexOf('/');
+                parentFolder = lastSlashIndex === -1 ? '/' : file.path.substring(0, lastSlashIndex + 1);
+            }
+            onFileSelect(file.name, parentFolder);
+        }
     };
 
     const FileItem = ({ file, onStar, onRemove, showRemove }) => {
         const parentFolder = file.path.substring(0, file.path.lastIndexOf('/')) || '/';
+        const isSSHFile = file.server;
+        
         return (
             <Paper
                 p="xs"
@@ -69,7 +117,7 @@ export function HomeView({ onFileSelect, recentFiles, starredFiles, setStarredFi
                 }}
                 onMouseOver={e => e.currentTarget.style.backgroundColor = '#4A5568'}
                 onMouseOut={e => e.currentTarget.style.backgroundColor = '#36414C'}
-                onClick={() => onFileSelect(file.name, parentFolder)}
+                onClick={() => handleFileClick(file)}
             >
                 <div style={{
                     display: 'flex',
@@ -79,9 +127,11 @@ export function HomeView({ onFileSelect, recentFiles, starredFiles, setStarredFi
                     maxWidth: 'calc(100% - 40px)',
                     overflow: 'hidden',
                 }}>
-                    <IconFile size={16} color="#A0AEC0" style={{ userSelect: 'none', flexShrink: 0 }} />
+                    <File size={16} color={isSSHFile ? "#4299E1" : "#A0AEC0"} style={{ userSelect: 'none', flexShrink: 0 }} />
                     <div style={{ flex: 1, minWidth: 0, marginLeft: 8 }}>
-                        <Text size="sm" color="white" style={{ lineHeight: 1.2, wordBreak: 'break-word', whiteSpace: 'normal', userSelect: 'none', overflow: 'hidden', textOverflow: 'ellipsis' }}>{file.name}</Text>
+                        <Text size="sm" color="white" style={{ lineHeight: 1.2, wordBreak: 'break-word', whiteSpace: 'normal', userSelect: 'none', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {file.name}
+                        </Text>
                         <Text size="xs" color="dimmed" style={{ lineHeight: 1.2, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{file.path}</Text>
                     </div>
                 </div>
@@ -101,7 +151,7 @@ export function HomeView({ onFileSelect, recentFiles, starredFiles, setStarredFi
                         }}
                     >
                         {starredFiles.some(f => f.path === file.path) ? (
-                            <IconStarFilled size={16} />
+                            <Star size={16} fill="currentColor" />
                         ) : (
                             <StarHoverableIcon size={16} />
                         )}
@@ -116,7 +166,7 @@ export function HomeView({ onFileSelect, recentFiles, starredFiles, setStarredFi
                                 onRemove(file);
                             }}
                         >
-                            <IconTrash size={16} />
+                            <Trash2 size={16} />
                         </ActionIcon>
                     )}
                 </div>
@@ -142,7 +192,7 @@ export function HomeView({ onFileSelect, recentFiles, starredFiles, setStarredFi
             }}
         >
             <Group spacing={4} align="flex-start" noWrap>
-                <IconFolder size={16} color="#4299E1" style={{ marginTop: 2 }} />
+                <Folder size={16} color="#4299E1" style={{ marginTop: 2 }} />
                 <div style={{ flex: 1, minWidth: 0 }}>
                     <Text size="sm" color="white" style={{ lineHeight: 1.2, wordBreak: 'break-word', whiteSpace: 'normal', userSelect: 'none', overflow: 'hidden', textOverflow: 'ellipsis' }}>{folder.name}</Text>
                     <Text size="xs" color="dimmed" style={{ lineHeight: 1.2, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{folder.path}</Text>
@@ -156,7 +206,7 @@ export function HomeView({ onFileSelect, recentFiles, starredFiles, setStarredFi
                         onRemove(folder);
                     }}
                 >
-                    <IconTrash size={16} />
+                    <Trash2 size={16} />
                 </ActionIcon>
             </Group>
         </Paper>
@@ -171,130 +221,159 @@ export function HomeView({ onFileSelect, recentFiles, starredFiles, setStarredFi
                 color: 'white'
             }}
         >
-            <Group spacing="md" mb="md">
-                <Button
-                    variant="filled"
-                    color="blue"
-                    leftSection={<IconHistory size={18} />}
-                    onClick={() => setActiveSection('recent')}
-                    style={{ backgroundColor: activeSection === 'recent' ? '#36414C' : '#4A5568', color: 'white', borderColor: '#4A5568', transition: 'background 0.2s' }}
-                    onMouseOver={e => e.currentTarget.style.backgroundColor = activeSection === 'recent' ? '#36414C' : '#36414C'}
-                    onMouseOut={e => e.currentTarget.style.backgroundColor = activeSection === 'recent' ? '#36414C' : '#4A5568'}
-                >
-                    Recent
-                </Button>
-                <Button
-                    variant="filled"
-                    color="yellow"
-                    leftSection={<IconBookmark size={18} />}
-                    onClick={() => setActiveSection('starred')}
-                    style={{ backgroundColor: activeSection === 'starred' ? '#36414C' : '#4A5568', color: 'white', borderColor: '#4A5568', transition: 'background 0.2s' }}
-                    onMouseOver={e => e.currentTarget.style.backgroundColor = activeSection === 'starred' ? '#36414C' : '#36414C'}
-                    onMouseOut={e => e.currentTarget.style.backgroundColor = activeSection === 'starred' ? '#36414C' : '#4A5568'}
-                >
-                    Starred
-                </Button>
-                <Button
-                    variant="filled"
-                    color="teal"
-                    leftSection={<IconFolders size={18} />}
-                    onClick={() => setActiveSection('folders')}
-                    style={{ backgroundColor: activeSection === 'folders' ? '#36414C' : '#4A5568', color: 'white', borderColor: '#4A5568', transition: 'background 0.2s' }}
-                    onMouseOver={e => e.currentTarget.style.backgroundColor = activeSection === 'folders' ? '#36414C' : '#36414C'}
-                    onMouseOut={e => e.currentTarget.style.backgroundColor = activeSection === 'folders' ? '#36414C' : '#4A5568'}
-                >
-                    Folder Shortcuts
-                </Button>
-            </Group>
-            {activeSection === 'recent' && (
-                <div style={{ height: 'calc(100vh - 200px)', overflow: 'hidden' }}>
-                    <SimpleGrid cols={3} spacing="md">
-                        {recentFiles.length === 0 ? (
-                            <Text color="dimmed" align="center" style={{ gridColumn: '1 / -1', padding: '2rem' }}>No recent files</Text>
-                        ) : (
-                            recentFiles.map(file => (
-                                <FileItem
-                                    key={file.path}
-                                    file={file}
-                                    onStar={handleStarFile}
-                                    onRemove={handleRemoveRecent}
-                                    showRemove={true}
-                                />
-                            ))
-                        )}
-                    </SimpleGrid>
-                </div>
+            {!currentServer && (
+                <Paper p="md" style={{ backgroundColor: '#2F3740', border: '1px solid #4A5568' }}>
+                    <Text color="dimmed" align="center" size="lg">
+                        Please select a server from the sidebar to view your files
+                    </Text>
+                </Paper>
             )}
-            {activeSection === 'starred' && (
-                <div style={{ height: 'calc(100vh - 200px)', overflow: 'hidden' }}>
-                    <SimpleGrid cols={3} spacing="md">
-                        {starredFiles.length === 0 ? (
-                            <Text color="dimmed" align="center" style={{ gridColumn: '1 / -1', padding: '2rem' }}>No starred files</Text>
-                        ) : (
-                            starredFiles.map(file => (
-                                <FileItem
-                                    key={file.path}
-                                    file={file}
-                                    onStar={handleStarFile}
-                                    showRemove={false}
-                                />
-                            ))
-                        )}
-                    </SimpleGrid>
-                </div>
-            )}
-            {activeSection === 'folders' && (
-                <Stack spacing="md">
-                    <Group>
-                        <TextInput
-                            placeholder="Enter folder path"
-                            value={newFolderPath}
-                            onChange={(e) => setNewFolderPath(e.target.value)}
-                            style={{ flex: 1 }}
-                            styles={{
-                                input: {
-                                    backgroundColor: '#36414C',
-                                    borderColor: '#4A5568',
-                                    color: 'white',
-                                    '&::placeholder': {
-                                        color: '#A0AEC0'
-                                    }
-                                }
-                            }}
-                        />
-                        <Button
-                            leftSection={<IconPlus size={16} />}
-                            onClick={handleAddFolder}
-                            variant="filled"
-                            color="blue"
-                            style={{
-                                backgroundColor: '#36414C',
-                                border: '1px solid #4A5568',
-                                '&:hover': {
-                                    backgroundColor: '#4A5568'
-                                }
-                            }}
-                        >
-                            Add
-                        </Button>
-                    </Group>
-                    <Divider color="#4A5568" />
-                    <div style={{ height: 'calc(100vh - 280px)', overflow: 'hidden' }}>
-                        <SimpleGrid cols={3} spacing="md">
-                            {folderShortcuts.length === 0 ? (
-                                <Text color="dimmed" align="center" style={{ gridColumn: '1 / -1', padding: '2rem' }}>No folder shortcuts</Text>
-                            ) : (
-                                folderShortcuts.map(folder => (
-                                    <FolderItem
-                                        key={folder.path}
-                                        folder={folder}
-                                        onRemove={handleRemoveFolder}
-                                    />
-                                ))
+            {currentServer && (
+                <>
+                    <Paper p="xs" style={{ backgroundColor: '#2F3740', border: '1px solid #4A5568' }}>
+                        <Text color="white" size="sm" weight={500}>
+                            Connected to: {currentServer.name} ({currentServer.user}@{currentServer.ip}:{currentServer.port})
+                        </Text>
+                    </Paper>
+                    {isSSHConnecting ? (
+                        <Paper p="md" style={{ backgroundColor: '#2F3740', border: '1px solid #4A5568' }}>
+                            <Group justify="center" spacing="md">
+                                <Loader size="sm" color="#4299E1" />
+                                <Text color="dimmed" align="center" size="lg">
+                                    Connecting to SSH server...
+                                </Text>
+                            </Group>
+                        </Paper>
+                    ) : (
+                        <>
+                            <Group spacing="md" mb="md">
+                                <Button
+                                    variant="filled"
+                                    color="blue"
+                                    leftSection={<History size={18} />}
+                                    onClick={() => setActiveSection('recent')}
+                                    style={{ backgroundColor: activeSection === 'recent' ? '#36414C' : '#4A5568', color: 'white', borderColor: '#4A5568', transition: 'background 0.2s' }}
+                                    onMouseOver={e => e.currentTarget.style.backgroundColor = activeSection === 'recent' ? '#36414C' : '#36414C'}
+                                    onMouseOut={e => e.currentTarget.style.backgroundColor = activeSection === 'recent' ? '#36414C' : '#4A5568'}
+                                >
+                                    Recent
+                                </Button>
+                                <Button
+                                    variant="filled"
+                                    color="yellow"
+                                    leftSection={<Bookmark size={18} />}
+                                    onClick={() => setActiveSection('starred')}
+                                    style={{ backgroundColor: activeSection === 'starred' ? '#36414C' : '#4A5568', color: 'white', borderColor: '#4A5568', transition: 'background 0.2s' }}
+                                    onMouseOver={e => e.currentTarget.style.backgroundColor = activeSection === 'starred' ? '#36414C' : '#36414C'}
+                                    onMouseOut={e => e.currentTarget.style.backgroundColor = activeSection === 'starred' ? '#36414C' : '#4A5568'}
+                                >
+                                    Starred
+                                </Button>
+                                <Button
+                                    variant="filled"
+                                    color="teal"
+                                    leftSection={<Folders size={18} />}
+                                    onClick={() => setActiveSection('folders')}
+                                    style={{ backgroundColor: activeSection === 'folders' ? '#36414C' : '#4A5568', color: 'white', borderColor: '#4A5568', transition: 'background 0.2s' }}
+                                    onMouseOver={e => e.currentTarget.style.backgroundColor = activeSection === 'folders' ? '#36414C' : '#36414C'}
+                                    onMouseOut={e => e.currentTarget.style.backgroundColor = activeSection === 'folders' ? '#36414C' : '#4A5568'}
+                                >
+                                    Folder Shortcuts
+                                </Button>
+                            </Group>
+                            {activeSection === 'recent' && (
+                                <div style={{ height: 'calc(100vh - 200px)', overflow: 'hidden' }}>
+                                    <SimpleGrid cols={3} spacing="md">
+                                        {serverRecentFiles.length === 0 ? (
+                                            <Text color="dimmed" align="center" style={{ gridColumn: '1 / -1', padding: '2rem' }}>No recent files</Text>
+                                        ) : (
+                                            serverRecentFiles.map(file => (
+                                                <FileItem
+                                                    key={file.path}
+                                                    file={file}
+                                                    onStar={handleStarFile}
+                                                    onRemove={handleRemoveRecent}
+                                                    showRemove={true}
+                                                />
+                                            ))
+                                        )}
+                                    </SimpleGrid>
+                                </div>
                             )}
-                        </SimpleGrid>
-                    </div>
-                </Stack>
+                            {activeSection === 'starred' && (
+                                <div style={{ height: 'calc(100vh - 200px)', overflow: 'hidden' }}>
+                                    <SimpleGrid cols={3} spacing="md">
+                                        {serverStarredFiles.length === 0 ? (
+                                            <Text color="dimmed" align="center" style={{ gridColumn: '1 / -1', padding: '2rem' }}>No starred files</Text>
+                                        ) : (
+                                            serverStarredFiles.map(file => (
+                                                <FileItem
+                                                    key={file.path}
+                                                    file={file}
+                                                    onStar={handleStarFile}
+                                                    showRemove={false}
+                                                />
+                                            ))
+                                        )}
+                                    </SimpleGrid>
+                                </div>
+                            )}
+                            {activeSection === 'folders' && (
+                                <Stack spacing="md">
+                                    <Group>
+                                        <TextInput
+                                            placeholder="Enter folder path"
+                                            value={newFolderPath}
+                                            onChange={(e) => setNewFolderPath(e.target.value)}
+                                            style={{ flex: 1 }}
+                                            styles={{
+                                                input: {
+                                                    backgroundColor: '#36414C',
+                                                    borderColor: '#4A5568',
+                                                    color: 'white',
+                                                    '&::placeholder': {
+                                                        color: '#A0AEC0'
+                                                    }
+                                                }
+                                            }}
+                                        />
+                                        <Button
+                                            leftSection={<Plus size={16} />}
+                                            onClick={handleAddFolder}
+                                            variant="filled"
+                                            color="blue"
+                                            style={{
+                                                backgroundColor: '#36414C',
+                                                border: '1px solid #4A5568',
+                                                '&:hover': {
+                                                    backgroundColor: '#4A5568'
+                                                }
+                                            }}
+                                        >
+                                            Add
+                                        </Button>
+                                    </Group>
+                                    <Divider color="#4A5568" />
+                                    <div style={{ height: 'calc(100vh - 280px)', overflow: 'hidden' }}>
+                                        <SimpleGrid cols={3} spacing="md">
+                                            {serverFolderShortcuts.length === 0 ? (
+                                                <Text color="dimmed" align="center" style={{ gridColumn: '1 / -1', padding: '2rem' }}>No folder shortcuts</Text>
+                                            ) : (
+                                                serverFolderShortcuts.map(folder => (
+                                                    <FolderItem
+                                                        key={folder.path}
+                                                        folder={folder}
+                                                        onRemove={handleRemoveFolder}
+                                                    />
+                                                ))
+                                            )}
+                                        </SimpleGrid>
+                                    </div>
+                                </Stack>
+                            )}
+                        </>
+                    )}
+                </>
             )}
         </Stack>
     );

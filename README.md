@@ -26,7 +26,7 @@ If you would like, you can support the project here!\
 # Overview
 Confix is an open-source, forever-free, self-hosted local config editor. Its purpose is to provide an all-in-one docker-hosted web solution to manage your servers config files, without having to enter SSH and use a tedious tool such as `nano`.
 
-![Demo Image 1](repo-images/DemoImage1.png)
+![Demo Image 1](https://github.com/user-attachments/assets/6e18bd24-7470-4974-986f-620d0b880d86)
 
 # Features
 - Interactive text editor ([CodeMirror](https://uiwjs.github.io/react-codemirror/#/))
@@ -35,14 +35,14 @@ Confix is an open-source, forever-free, self-hosted local config editor. Its pur
 - Built-in file viewer for navigating your file system
 - Tab system to navigate between open config files
 - Seamlessly pick up where you left off with features that save your open tabs, track recently accessed files, let you star important config files, and quickly return to your saved directories
+- Remote config editing (SSH)
+- Syntax highlighting dynamic towards your config langauge
 
 # Planned Features
 - Custom themes
-- Better syntax highlighting depending on the config language
 - Guest mode
 - User permissions (only certain users can access specific files or folders, etc.)
 - View config file diff (compare the config file to the previous version)
-- Remote config editing (SSH)
 - Config schema validation
 - Backup configs to compressed file
 
@@ -59,7 +59,7 @@ services:
     ports:
       - "8080:8080"
     volumes:
-      - confix-data:/app/src/backend
+      - confix-data:/app/src/backend/data
       # Add volume mappings for your configuration directories below.
       # Example: - /apps/:/apps  
       # (Left side: path on your server, Right side: path as accessed inside the Confix file browser)
@@ -79,7 +79,7 @@ If you need help with Confix, you can join the [Discord](https://discord.gg/jVQG
 # Show-off
 
 [https://rawcdn.githack.com/LukeGus/Confix/ecb5fdb4af14c0fa35db029d3e701529050093d6/repo-images/DemoVideo1.mp4
-](https://github.com/user-attachments/assets/c54d0246-bcd5-4399-8a1f-29f3d4c327b7)
+](https://github.com/user-attachments/assets/75a255b1-ac25-46a3-a561-9527dd4a9a8f)
 
 # License
 Distributed under the MIT license. See LICENSE for more information.

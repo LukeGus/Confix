@@ -1,6 +1,6 @@
 import React from 'react';
 import { Button } from '@mantine/core';
-import { IconHome } from '@tabler/icons-react';
+import { Home } from 'lucide-react';
 
 export function TabList({ tabs, activeTab, setActiveTab, closeTab, onHomeClick }) {
     return (
@@ -69,7 +69,7 @@ export function TabList({ tabs, activeTab, setActiveTab, closeTab, onHomeClick }
                         onMouseOver={e => e.currentTarget.style.backgroundColor = '#4A5568'}
                         onMouseOut={e => e.currentTarget.style.backgroundColor = 'transparent'}
                     >
-                        <IconHome size={16} />
+                        <Home size={16} />
                     </Button>
                 </div>
                 {tabs.map((tab, i) => {
