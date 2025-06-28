@@ -26,7 +26,7 @@ If you would like, you can support the project here!\
 # Overview
 Confix is an open-source, forever-free, self-hosted local config editor. Its purpose is to provide an all-in-one docker-hosted web solution to manage your servers config files, without having to enter SSH and use a tedious tool such as `nano`.
 
-![Demo Image 1](repo-images/DemoImage1.png)
+![Demo Image 1](https://github.com/user-attachments/assets/6e18bd24-7470-4974-986f-620d0b880d86)
 
 # Features
 - Interactive text editor ([CodeMirror](https://uiwjs.github.io/react-codemirror/#/))
