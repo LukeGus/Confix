@@ -1,3 +1,10 @@
+> [!WARNING]
+> **Project Migration in Progress**
+>
+> This project is currently undergoing a full migration to **TypeScript**.  
+> There will be no updates during this process (may take weeks to months).  
+> Once completed, expect many new features and improvements! However, this project will merge with [Termix](https://github.com/LukeGus/Termix) and will cease to exist separately (to make my life easier). Once we approach the release, more info will be provided.
+
 # Repo Stats
 ![GitHub Repo stars](https://img.shields.io/github/stars/LukeGus/Confix?style=flat&label=Stars)
 ![GitHub forks](https://img.shields.io/github/forks/LukeGus/Confix?style=flat&label=Forks)
